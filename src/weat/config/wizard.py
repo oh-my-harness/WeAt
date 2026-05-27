@@ -39,9 +39,11 @@ def _prompt(label: str, default: str = "", secret: bool = False) -> str:
 
 
 async def _login(session: aiohttp.ClientSession, homeserver: str, user_id: str, password: str) -> str:
+    timeout = aiohttp.ClientTimeout(total=15)
     async with session.post(
         f"{homeserver}/_matrix/client/v3/login",
         json={"type": "m.login.password", "user": user_id, "password": password},
+        timeout=timeout,
     ) as r:
         data = await r.json()
         if "access_token" in data:
@@ -50,6 +52,7 @@ async def _login(session: aiohttp.ClientSession, homeserver: str, user_id: str, 
 
 
 async def _create_weat_room(session: aiohttp.ClientSession, homeserver: str, token: str) -> str:
+    timeout = aiohttp.ClientTimeout(total=15)
     async with session.post(
         f"{homeserver}/_matrix/client/v3/createRoom",
         headers={"Authorization": f"Bearer {token}"},
@@ -59,11 +62,12 @@ async def _create_weat_room(session: aiohttp.ClientSession, homeserver: str, tok
             "preset": "private_chat",
             "invite": [],
         },
+        timeout=timeout,
     ) as r:
         data = await r.json()
         room_id = data.get("room_id", "")
         if not room_id:
-            raise RuntimeError(f"Failed to create WeAt room: {data}")
+            raise RuntimeError(f"服务器返回错误：{data}")
         return room_id
 
 
@@ -151,12 +155,23 @@ async def run_wizard(config_path: Path) -> None:
         # ── Step 4: Create WeAt room ──────────────────────────────────────────
         print()
         print("  正在创建 WeAt 指令室...", end="", flush=True)
+        weat_room_id = ""
         try:
             weat_room_id = await _create_weat_room(http, homeserver, token)
+            print(f" ✅ ({weat_room_id})")
         except Exception as e:
-            print(f"\n  ❌ 创建房间失败：{e}")
-            sys.exit(1)
-        print(f" ✅ ({weat_room_id})")
+            print(f"\n  ⚠️  自动创建失败（{e}）")
+            print()
+            print("  请在 Element 中手动创建房间：")
+            print("    1. 打开 Element，点左侧「+」→「New room」")
+            print("    2. 房间名填「WeAt」，设为私密（Private）")
+            print("    3. 创建后进入房间 → 点右上角 ⚙️ → Room settings → Room addresses")
+            print("    4. 页面底部可看到 Internal room ID，格式：!xxxxxxxx:matrix.org")
+            print()
+            weat_room_id = _prompt("粘贴 Room ID（以 ! 开头）")
+            if not weat_room_id.startswith("!"):
+                print("  ❌ Room ID 应以 ! 开头，请检查后重试。")
+                sys.exit(1)
 
     # ── Step 5: Write config ──────────────────────────────────────────────────
     config = Config(
