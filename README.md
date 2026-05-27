@@ -18,6 +18,8 @@ Element 是最主流的 Matrix 客户端，WeAt 需要配合它使用。
 1. 打开 Element → 点「Create account」
 2. 服务器选默认的 `matrix.org`（国内可能需要代理）
 3. 填用户名 + 密码，完成注册
+4. 如果选择了 Google / Apple 等 SSO 登录（没有密码），配置向导会提示你粘贴 Access Token：
+   Element → **Settings → Help & About → 滚到最底部 → Access Token → 点复制**
 
 **邀请朋友进群：**
 1. 在 Element 左侧点「+」→「New room」创建群聊

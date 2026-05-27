@@ -93,17 +93,30 @@ async def run_wizard(config_path: Path) -> None:
     server_name = homeserver.split("://")[-1]
     user_id = f"@{username}:{server_name}"
 
-    password = _prompt("密码", secret=True)
+    print()
+    print("  登录方式：")
+    print("    1. 密码登录")
+    print("    2. 粘贴 Access Token（用 Google/Apple 等 SSO 登录时选此项）")
+    print("       取 Token：Element → Settings → Help & About → 最底部 Access Token")
+    login_choice = _prompt("选择", default="1")
 
-    print(f"  正在登录 {user_id}...", end="", flush=True)
     async with aiohttp.ClientSession() as http:
-        try:
-            token = await _login(http, homeserver, user_id, password)
-        except ValueError as e:
-            print(f"\n  ❌ 登录失败：{e}")
-            print(f"  请确认用户名和密码，以及服务器 {homeserver} 是否可访问。")
-            sys.exit(1)
-        print(" ✅")
+        if login_choice == "2":
+            token = _prompt("Access Token", secret=True)
+            if not token:
+                print("  ❌ Token 不能为空。")
+                sys.exit(1)
+            print(f"  ✅ 使用已提供的 Token")
+        else:
+            password = _prompt("密码", secret=True)
+            print(f"  正在登录 {user_id}...", end="", flush=True)
+            try:
+                token = await _login(http, homeserver, user_id, password)
+            except ValueError as e:
+                print(f"\n  ❌ 登录失败：{e}")
+                print(f"  如果你用 Google/Apple 登录，请选登录方式 2（粘贴 Token）。")
+                sys.exit(1)
+            print(" ✅")
 
         # ── Step 2: Vault path ────────────────────────────────────────────────
         print()
