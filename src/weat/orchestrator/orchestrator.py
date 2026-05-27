@@ -98,9 +98,8 @@ class Orchestrator:
             or os.environ.get("ALL_PROXY")
             or os.environ.get("all_proxy")
         )
-        client_config = nio.AsyncClientConfig(proxy=proxy) if proxy else None
         self._client = nio.AsyncClient(
-            self.config.homeserver, self.config.user_id, config=client_config
+            self.config.homeserver, self.config.user_id, proxy=proxy
         )
         self._client.access_token = self.config.access_token
         self._client.user_id = self.config.user_id
