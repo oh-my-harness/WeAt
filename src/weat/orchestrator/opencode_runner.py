@@ -11,10 +11,13 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import os
 import shutil
 import sys
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 
 UV_BIN = shutil.which("uv") or "uv"
@@ -101,7 +104,18 @@ class OpenCodeRunner:
         )
         stdout, stderr = await proc.communicate()
 
-        return self._parse_output(stdout.decode("utf-8", errors="replace"))
+        raw = stdout.decode("utf-8", errors="replace")
+        err = stderr.decode("utf-8", errors="replace").strip()
+
+        if err:
+            for line in err.splitlines():
+                logger.debug("opencode stderr: %s", line)
+        if proc.returncode != 0:
+            logger.warning("opencode exited %d", proc.returncode)
+        if not raw.strip():
+            logger.warning("opencode returned empty stdout (exit=%d)", proc.returncode)
+
+        return self._parse_output(raw)
 
     @staticmethod
     def _parse_output(raw: str) -> tuple[str, str]:
