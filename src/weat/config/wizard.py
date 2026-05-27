@@ -152,26 +152,29 @@ async def run_wizard(config_path: Path) -> None:
         _write_opencode_auth(provider_key, api_key)
         print(f"  ✅ opencode 配置完成（{_opencode_auth_path()}）")
 
-        # ── Step 4: Create WeAt room ──────────────────────────────────────────
+        # ── Step 4: WeAt room ─────────────────────────────────────────────────
         print()
-        print("  正在创建 WeAt 指令室...", end="", flush=True)
-        weat_room_id = ""
-        try:
-            weat_room_id = await _create_weat_room(http, homeserver, token)
-            print(f" ✅ ({weat_room_id})")
-        except Exception as e:
-            print(f"\n  ⚠️  自动创建失败（{e}）")
-            print()
-            print("  请在 Element 中手动创建房间：")
-            print("    1. 打开 Element，点左侧「+」→「New room」")
-            print("    2. 房间名填「WeAt」，设为私密（Private）")
-            print("    3. 创建后进入房间 → 点右上角 ⚙️ → Room settings → Room addresses")
-            print("    4. 页面底部可看到 Internal room ID，格式：!xxxxxxxx:matrix.org")
-            print()
-            weat_room_id = _prompt("粘贴 Room ID（以 ! 开头）")
-            if not weat_room_id.startswith("!"):
-                print("  ❌ Room ID 应以 ! 开头，请检查后重试。")
+        print("  WeAt 指令室 Room ID（在 Element 里创建一个私密房间，然后粘贴 Room ID）：")
+        print("    Element → 左侧「+」→「New room」→ 创建后进房间")
+        print("    → ⚙️ Room settings → Room addresses → 底部 Internal room ID")
+        print("  留空则自动创建（需要网络能访问服务器）")
+        weat_room_id = _prompt("Room ID（以 ! 开头，或回车自动创建）")
+
+        if weat_room_id and not weat_room_id.startswith("!"):
+            print("  ❌ Room ID 应以 ! 开头，请检查后重试。")
+            sys.exit(1)
+
+        if not weat_room_id:
+            print("  正在自动创建 WeAt 指令室...", end="", flush=True)
+            try:
+                weat_room_id = await _create_weat_room(http, homeserver, token)
+                print(f" ✅ ({weat_room_id})")
+            except Exception as e:
+                print(f"\n  ❌ 自动创建失败（{e}）")
+                print("  请在 Element 手动创建后重新运行向导，粘贴 Room ID。")
                 sys.exit(1)
+        else:
+            print(f"  ✅ 使用已有房间 {weat_room_id}")
 
     # ── Step 5: Write config ──────────────────────────────────────────────────
     config = Config(
