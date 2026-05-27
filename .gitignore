@@ -22,7 +22,8 @@ build/
 .env.*
 !.env.example
 
-# Secrets / credentials
+# Secrets / credentials — never commit these
+weat.json
 *.token
 *.key
 matrix-tokens.json
@@ -45,5 +46,19 @@ data/
 synapse-data/
 opencode-cache/
 
-# Spike scratch
+# Spike scratch and temp files
 spikes/*/scratch/
+
+# Synapse (local dev server)
+homeserver.db*
+homeserver.log
+media_store/
+homeserver.yaml
+synapse.yaml
+*.signing.key
+
+# opencode vault config (contains tokens)
+.opencode/
+
+# Root-level scratch files
+main.py
