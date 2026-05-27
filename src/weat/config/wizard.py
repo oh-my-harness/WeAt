@@ -160,8 +160,8 @@ async def run_wizard(config_path: Path) -> None:
         print("  留空则自动创建（需要网络能访问服务器）")
         weat_room_id = _prompt("Room ID（以 ! 开头，或回车自动创建）")
 
-        if weat_room_id and not weat_room_id.startswith("!"):
-            print("  ❌ Room ID 应以 ! 开头，请检查后重试。")
+        if weat_room_id and not (weat_room_id.startswith("!") and ":" in weat_room_id and weat_room_id.split(":")[-1]):
+            print("  ❌ Room ID 格式不对，应为 !xxxxxxxx:servername（如 !abc:matrix.org）")
             sys.exit(1)
 
         if not weat_room_id:
