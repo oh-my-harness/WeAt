@@ -4,52 +4,102 @@
 
 ---
 
-## 第零步：安装 Element 并注册 Matrix 账号
+## 第零步：安装前置工具
+
+### 1. Element（Matrix 客户端）
 
 Element 是最主流的 Matrix 客户端，WeAt 需要配合它使用。
 
-**安装 Element：**
-- macOS：[下载 Element.app](https://element.io/download) 或 `brew install --cask element`
-- Windows：[下载安装包](https://element.io/download)
-- iOS / Android：App Store / Google Play 搜「Element」
-- 网页版（无需安装）：[app.element.io](https://app.element.io)
+| 平台 | 安装方式 |
+|---|---|
+| macOS | `brew install --cask element` 或[下载 .dmg](https://element.io/download) |
+| Windows | [下载安装包](https://element.io/download) 或 `scoop install element` |
+| iOS | App Store 搜「Element」 |
+| Android | Google Play 搜「Element」 |
+| 网页版 | [app.element.io](https://app.element.io)（无需安装） |
 
-**注册账号：**
+**注册 Matrix 账号：**
 1. 打开 Element → 点「Create account」
 2. 服务器选默认的 `matrix.org`（国内可能需要代理）
-3. 填用户名 + 密码，完成注册
-4. 如果选择了 Google / Apple 等 SSO 登录（没有密码），配置向导会提示你粘贴 Access Token：
-   Element → **Settings → Help & About → 滚到最底部 → Access Token → 点复制**
+3. 填用户名 + 密码完成注册
 
-**邀请朋友进群：**
-1. 在 Element 左侧点「+」→「New room」创建群聊
-2. 进入群聊 → 右侧「People」→「Invite」→ 输入朋友的 Matrix ID（格式：`@username:matrix.org`）
-3. 朋友同样在 Element 注册，接受邀请即可加入
+> 如果用 Google / Apple 等 SSO 登录（没有密码），配置向导会提示你粘贴 Access Token：
+> Element → **Settings → Help & About → 滚到最底部 → Access Token → 点复制**
+
+**创建群聊 & 邀请朋友：**
+1. Element 左侧点「+」→「New room」创建群聊
+2. 进群 → 右侧「People」→「Invite」→ 输入朋友的 Matrix ID（格式：`@username:matrix.org`）
+3. 朋友在 Element 注册后接受邀请即可加入
 
 ---
 
-## 快速上手（三步）
+### 2. uv（Python 包管理器）
 
-**前置条件：**
-- Python 3.12+ + [uv](https://docs.astral.sh/uv/)
-- [opencode](https://opencode.ai/) ≥ 1.15（`npm install -g opencode` 或见官网）
-- 已有 Matrix 账号（上面第零步）
-- Obsidian vault 或任意 markdown 文件夹
+uv 会自动管理 Python 版本，不需要单独安装 Python。
 
 ```bash
-# 第一步：安装
+# macOS / Linux
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Windows（PowerShell）
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+
+# macOS（Homebrew）
+brew install uv
+```
+
+安装后重新打开终端，运行 `uv --version` 确认。
+
+---
+
+### 3. opencode（AI Agent 运行时）
+
+```bash
+# macOS（推荐）
+brew install opencode
+
+# 任意平台（curl）
+curl -fsSL https://opencode.ai/install | bash
+
+# npm
+npm install -g opencode-ai@latest
+
+# Windows
+scoop install opencode
+```
+
+安装后运行 `opencode --version` 确认（需要 ≥ 1.15）。
+
+---
+
+### 4. LLM API Key
+
+配置向导会询问 API Key，提前准备好其中一个：
+
+| 提供商 | 注册地址 | 备注 |
+|---|---|---|
+| DeepSeek | [platform.deepseek.com](https://platform.deepseek.com) | 推荐，价格便宜 |
+| Anthropic | [console.anthropic.com](https://console.anthropic.com) | Claude 系列 |
+| OpenAI | [platform.openai.com](https://platform.openai.com) | GPT 系列 |
+
+---
+
+## 安装 & 启动（三步）
+
+```bash
+# 第一步：下载并安装依赖
 git clone https://github.com/hhllhhyyds/weat
 cd weat
 uv sync
 
-# 第二步：配置（交互式向导，约一分钟）
+# 第二步：运行配置向导（约一分钟）
 uv run weat-setup
 
 # 第三步：启动
 uv run weat-bridge
 ```
 
-向导会询问：Matrix 用户名/密码、vault 路径、LLM API Key（DeepSeek / Anthropic / OpenAI）。配置完成后，在 Element 找到「WeAt」房间，发 `/help` 开始。
+向导会依次询问：Matrix 用户名/密码（或 Token）、vault 路径、LLM API Key，并自动创建「WeAt」指令房间。完成后在 Element 找到「WeAt」房间，发 `/help` 开始。
 
 ---
 
