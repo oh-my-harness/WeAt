@@ -1,0 +1,34 @@
+version: "3.9"
+
+# WeAt bridge — per-user container
+# Synapse server is NOT included here; it's deployed team-wide separately.
+#
+# Usage:
+#   1. Copy weat.json.example to weat.json and fill in credentials (or run `weat-setup`)
+#   2. docker-compose up -d
+
+services:
+  bridge:
+    build: .
+    restart: unless-stopped
+    environment:
+      # Override any weat.json value via environment:
+      - WEAT_MATRIX_HOMESERVER=${WEAT_MATRIX_HOMESERVER:-}
+      - WEAT_MATRIX_USER_ID=${WEAT_MATRIX_USER_ID:-}
+      - WEAT_MATRIX_ACCESS_TOKEN=${WEAT_MATRIX_ACCESS_TOKEN:-}
+      - WEAT_BOT_USER_ID=${WEAT_BOT_USER_ID:-}
+      - WEAT_BOT_ACCESS_TOKEN=${WEAT_BOT_ACCESS_TOKEN:-}
+      - WEAT_VAULT_PATH=/vault
+      - WEAT_DB_PATH=/data/weat.db
+      - WEAT_OPENCODE_MODEL=${WEAT_OPENCODE_MODEL:-}
+      - WEAT_SESSION_TIMEOUT_MINUTES=${WEAT_SESSION_TIMEOUT_MINUTES:-30}
+    volumes:
+      - ./weat.json:/app/weat.json:ro
+      - ${VAULT_PATH:-./vault}:/vault
+      - weat-data:/data
+    ports:
+      - "127.0.0.1:8080:8080"   # wizard (first run only)
+    command: weat-bridge
+
+volumes:
+  weat-data:

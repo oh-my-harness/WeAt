@@ -1,0 +1,17 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "weat-spike-time": {
+      "type": "local",
+      "enabled": true,
+      "command": [
+        "/Users/hhl/.local/bin/uv",
+        "run",
+        "--project",
+        "/Users/hhl/Documents/projs/WeAt",
+        "python",
+        "/Users/hhl/Documents/projs/WeAt/spikes/S3-mcp/mcp_server_spike.py"
+      ]
+    }
+  }
+}
