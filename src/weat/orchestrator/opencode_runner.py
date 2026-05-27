@@ -43,24 +43,26 @@ class OpenCodeRunner:
         mcp_server_path = str(WEAT_PACKAGE_DIR / "matrix_mcp" / "server.py")
         project_root = str(WEAT_PACKAGE_DIR.parent.parent)  # WeAt project root
 
-        config = {
+        # opencode does not pass `env` fields to local MCP servers (≤1.15.x),
+        # so write a wrapper shell script that sets env vars before launching.
+        wrapper_path = self.vault_path / ".opencode" / "weat_matrix_mcp.sh"
+        wrapper_path.parent.mkdir(parents=True, exist_ok=True)
+        wrapper_path.write_text(
+            "#!/bin/sh\n"
+            f"export WEAT_MATRIX_HOMESERVER={homeserver!r}\n"
+            f"export WEAT_MATRIX_USER_ID={user_id!r}\n"
+            f"export WEAT_MATRIX_ACCESS_TOKEN={access_token!r}\n"
+            f"exec {UV_BIN} run --project {project_root!r} python {mcp_server_path!r}\n"
+        )
+        wrapper_path.chmod(0o755)
+
+        config: dict = {
             "$schema": "https://opencode.ai/config.json",
             "mcp": {
                 "weat-matrix": {
                     "type": "local",
                     "enabled": True,
-                    "command": [
-                        UV_BIN,
-                        "run",
-                        "--project", project_root,
-                        "python",
-                        mcp_server_path,
-                    ],
-                    "env": {
-                        "WEAT_MATRIX_HOMESERVER": homeserver,
-                        "WEAT_MATRIX_USER_ID": user_id,
-                        "WEAT_MATRIX_ACCESS_TOKEN": access_token,
-                    },
+                    "command": [str(wrapper_path)],
                 }
             },
         }

@@ -109,8 +109,14 @@ class Orchestrator:
         self._running = True
 
         logger.info("Starting bot sync loop ...")
+        first_sync = True
         while self._running:
-            resp = await self._bot_client.sync(timeout=30000, full_state=False)
+            resp = await self._bot_client.sync(
+                timeout=30000,
+                full_state=first_sync,
+                since=self._bot_client.next_batch if not first_sync else None,
+            )
+            first_sync = False
             if isinstance(resp, nio.SyncError):
                 logger.error("Sync error: %s", resp.message)
                 await asyncio.sleep(5)
@@ -135,8 +141,9 @@ class Orchestrator:
         # Only handle messages from the configured user
         if event.sender != self.config.user_id:
             return
-        # Only handle private DMs (2-person rooms)
-        if room.member_count > 2:
+        # Only handle private DMs; member_count may be 0 before full sync,
+        # so only skip when it's definitively > 2.
+        if room.member_count and room.member_count > 2:
             return
 
         text = event.body.strip()
