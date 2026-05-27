@@ -2,12 +2,9 @@
   "homeserver": "https://matrix.org",
   "user_id": "@alice:matrix.org",
   "access_token": "syt_alice_token_here",
-  "bot_user_id": "@aliceassistant:matrix.org",
-  "bot_access_token": "syt_bot_token_here",
+  "weat_room_id": "!roomid:matrix.org",
   "vault_path": "/Users/alice/Documents/Notes",
   "db_path": "weat.db",
-  "osb_dist_path": "",
-  "opencode_model": "anthropic/claude-sonnet-4-5",
-  "opencode_extra_args": [],
+  "opencode_model": "deepseek/deepseek-chat",
   "session_timeout_minutes": 30
 }
