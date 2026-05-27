@@ -102,7 +102,8 @@ async def run_wizard(config_path: Path) -> None:
 
     async with aiohttp.ClientSession() as http:
         if login_choice == "2":
-            token = _prompt("Access Token", secret=True)
+            print("  在 Element 里取 Token：Settings → Help & About → 滚到底部 → Access Token")
+            token = _prompt("Access Token（明文显示，方便确认）")
             if not token:
                 print("  ❌ Token 不能为空。")
                 sys.exit(1)
