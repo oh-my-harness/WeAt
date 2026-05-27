@@ -56,7 +56,7 @@ def _fmt_event(e: dict, room_id: str) -> dict[str, Any]:
 async def list_rooms() -> str:
     """List all Matrix rooms the user has joined, with display names and IDs."""
     homeserver, _ = _cfg()
-    async with aiohttp.ClientSession(headers=_headers()) as s:
+    async with aiohttp.ClientSession(headers=_headers(), trust_env=True) as s:
         async with s.get(f"{homeserver}/_matrix/client/v3/joined_rooms") as r:
             if r.status != 200:
                 return json.dumps({"error": await r.text()})
@@ -79,7 +79,7 @@ async def get_recent_messages(room_id: str, limit: int = 50) -> str:
     """
     limit = min(max(1, limit), 200)
     homeserver, _ = _cfg()
-    async with aiohttp.ClientSession(headers=_headers()) as s:
+    async with aiohttp.ClientSession(headers=_headers(), trust_env=True) as s:
         url = f"{homeserver}/_matrix/client/v3/rooms/{room_id}/messages"
         async with s.get(url, params={"limit": limit, "dir": "b"}) as r:
             if r.status != 200:
@@ -107,7 +107,7 @@ async def search_messages(room_id: str, query: str, limit: int = 20) -> str:
     """
     limit = min(max(1, limit), 100)
     homeserver, _ = _cfg()
-    async with aiohttp.ClientSession(headers=_headers()) as s:
+    async with aiohttp.ClientSession(headers=_headers(), trust_env=True) as s:
         url = f"{homeserver}/_matrix/client/v3/rooms/{room_id}/messages"
         async with s.get(url, params={"limit": 500, "dir": "b"}) as r:
             if r.status != 200:

@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 import re
 import time
 from typing import Awaitable, Callable
@@ -91,7 +92,16 @@ class Orchestrator:
     async def start(self) -> None:
         await self.store.init()
 
-        self._client = nio.AsyncClient(self.config.homeserver, self.config.user_id)
+        proxy = (
+            os.environ.get("HTTPS_PROXY")
+            or os.environ.get("https_proxy")
+            or os.environ.get("ALL_PROXY")
+            or os.environ.get("all_proxy")
+        )
+        client_config = nio.AsyncClientConfig(proxy=proxy) if proxy else None
+        self._client = nio.AsyncClient(
+            self.config.homeserver, self.config.user_id, config=client_config
+        )
         self._client.access_token = self.config.access_token
         self._client.user_id = self.config.user_id
 

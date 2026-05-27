@@ -104,7 +104,7 @@ async def run_wizard(config_path: Path) -> None:
     print("       取 Token：Element → Settings → Help & About → 最底部 Access Token")
     login_choice = _prompt("选择", default="1")
 
-    async with aiohttp.ClientSession() as http:
+    async with aiohttp.ClientSession(trust_env=True) as http:
         if login_choice == "2":
             print("  在 Element 里取 Token：Settings → Help & About → 滚到底部 → Access Token")
             token = _prompt("Access Token（明文显示，方便确认）")
