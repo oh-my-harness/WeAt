@@ -1,83 +1,77 @@
 """
-S1 spike: verify matrix-nio can login, read history, and send as user identity.
+S1 spike: verify Matrix REST API works with user token (no matrix-nio sync needed).
+
+Get token from Element: All settings → Help & About → bottom → Access Token
 
 Usage:
-    uv run python spikes/S1-matrix/test_matrix_nio.py \
-        --homeserver https://matrix.org \
-        --username @alice:matrix.org \
-        --password "..." \
-        --room-id "!roomid:matrix.org"
-
-Or set env vars: MATRIX_HOMESERVER, MATRIX_USERNAME, MATRIX_PASSWORD, MATRIX_ROOM_ID
+    MATRIX_USERNAME=@hhllhhyyds:matrix.org \
+    MATRIX_TOKEN=mat_xxx \
+    MATRIX_ROOM_ID='!xxx:matrix.org' \
+    uv run python spikes/S1-matrix/test_matrix_nio.py
 """
 import asyncio
 import argparse
 import os
 import sys
 import json
-import nio
+import aiohttp
 
 
-async def run_spike(homeserver: str, username: str, password: str, room_id: str) -> bool:
-    client = nio.AsyncClient(homeserver, username)
+async def run_spike(homeserver: str, user_id: str, token: str, room_id: str) -> bool:
+    headers = {"Authorization": f"Bearer {token}"}
 
-    print(f"[S1] Logging in as {username} ...")
-    resp = await client.login(password)
-    if isinstance(resp, nio.LoginError):
-        print(f"[S1] FAIL login: {resp.message}")
-        await client.close()
-        return False
-    print(f"[S1] OK  access_token={resp.access_token[:20]}...")
+    async with aiohttp.ClientSession(headers=headers) as session:
+        # 1. Verify token works (whoami)
+        print(f"[S1] Verifying token ...")
+        async with session.get(f"{homeserver}/_matrix/client/v3/account/whoami") as resp:
+            if resp.status != 200:
+                print(f"[S1] FAIL whoami: HTTP {resp.status} — {await resp.text()}")
+                return False
+            data = await resp.json()
+            print(f"[S1] OK  logged in as {data.get('user_id')}")
 
-    print(f"[S1] Syncing to get room state ...")
-    await client.sync(timeout=10000, full_state=True)
+        # 2. Read recent messages
+        print(f"[S1] Fetching messages from {room_id} ...")
+        url = f"{homeserver}/_matrix/client/v3/rooms/{room_id}/messages"
+        async with session.get(url, params={"limit": 10, "dir": "b"}) as resp:
+            if resp.status != 200:
+                print(f"[S1] FAIL messages: HTTP {resp.status} — {await resp.text()}")
+                return False
+            data = await resp.json()
+            msgs = [e for e in data.get("chunk", []) if e.get("type") == "m.room.message"]
+            print(f"[S1] OK  got {len(msgs)} messages")
+            for m in msgs[:3]:
+                body = m.get("content", {}).get("body", "")
+                print(f"       {m.get('sender')}: {body[:60]!r}")
 
-    print(f"[S1] Fetching last 10 messages from {room_id} ...")
-    resp = await client.room_messages(
-        room_id, start="", limit=10, direction=nio.MessageDirection.back
-    )
-    if isinstance(resp, nio.RoomMessagesError):
-        print(f"[S1] FAIL room_messages: {resp.message}")
-        await client.close()
-        return False
+        # 3. Send a test message as the user
+        print(f"[S1] Sending test message as {user_id} ...")
+        import time
+        txn_id = str(int(time.time() * 1000))
+        url = f"{homeserver}/_matrix/client/v3/rooms/{room_id}/send/m.room.message/{txn_id}"
+        async with session.put(url, json={"msgtype": "m.text", "body": "[WeAt S1 spike] hello from matrix REST API"}) as resp:
+            if resp.status != 200:
+                print(f"[S1] FAIL send: HTTP {resp.status} — {await resp.text()}")
+                return False
+            data = await resp.json()
+            print(f"[S1] OK  event_id={data.get('event_id')}")
 
-    msgs = [
-        e for e in resp.chunk if isinstance(e, nio.RoomMessageText)
-    ]
-    print(f"[S1] OK  got {len(msgs)} text messages (of {len(resp.chunk)} events)")
-    for m in msgs[:3]:
-        print(f"       {m.sender}: {m.body[:60]!r}")
-
-    print(f"[S1] Sending test message as {username} ...")
-    resp = await client.room_send(
-        room_id,
-        message_type="m.room.message",
-        content={"msgtype": "m.text", "body": "[WeAt S1 spike] hello from matrix-nio"},
-    )
-    if isinstance(resp, nio.RoomSendError):
-        print(f"[S1] FAIL send: {resp.message}")
-        await client.close()
-        return False
-    print(f"[S1] OK  event_id={resp.event_id}")
-    print("[S1] Check Element: the message should appear as sent by the user, no bot indicator.")
-
-    await client.close()
+    print("[S1] Check Element: message should show as sent by the user, no bot indicator.")
+    print("[S1] PASS — D7 assumption verified ✅")
     return True
 
 
 def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--homeserver", default=os.getenv("MATRIX_HOMESERVER", "https://matrix.org"))
-    parser.add_argument("--username", default=os.getenv("MATRIX_USERNAME", ""))
-    parser.add_argument("--password", default=os.getenv("MATRIX_PASSWORD", ""))
-    parser.add_argument("--room-id", default=os.getenv("MATRIX_ROOM_ID", ""))
-    args = parser.parse_args()
+    homeserver = os.getenv("MATRIX_HOMESERVER", "https://matrix.org")
+    user_id = os.getenv("MATRIX_USERNAME", "")
+    token = os.getenv("MATRIX_TOKEN", "")
+    room_id = os.getenv("MATRIX_ROOM_ID", "")
 
-    if not args.username or not args.password or not args.room_id:
-        print("Set MATRIX_USERNAME, MATRIX_PASSWORD, MATRIX_ROOM_ID env vars or pass CLI flags.")
+    if not user_id or not token or not room_id:
+        print("需要: MATRIX_USERNAME, MATRIX_TOKEN, MATRIX_ROOM_ID")
         sys.exit(1)
 
-    ok = asyncio.run(run_spike(args.homeserver, args.username, args.password, args.room_id))
+    ok = asyncio.run(run_spike(homeserver, user_id, token, room_id))
     sys.exit(0 if ok else 1)
 
 

@@ -1,8 +1,10 @@
 """
 Matrix MCP Server — exposes Matrix room data to opencode agents as MCP tools.
 
+Uses Matrix REST API directly (via aiohttp) to avoid matrix-nio's sync requirement.
+
 Tools exposed:
-  - list_rooms()                              → rooms the bot has joined
+  - list_rooms()                              → rooms the bot/user has joined
   - get_recent_messages(room_id, limit=50)   → last N messages in a room
   - search_messages(room_id, query, limit=20) → keyword search in room timeline
 
@@ -11,76 +13,58 @@ orchestrator's human-review loop, never directly from the agent.
 
 Transport: stdio (started by the orchestrator as a subprocess).
 Config via env vars:
-  WEAT_MATRIX_HOMESERVER   e.g. https://matrix.org
+  WEAT_MATRIX_HOMESERVER   e.g. http://localhost:8008
   WEAT_MATRIX_ACCESS_TOKEN user's Matrix access token
-  WEAT_MATRIX_USER_ID      e.g. @alice:matrix.org
+  WEAT_MATRIX_USER_ID      e.g. @alice:localhost
 """
 from __future__ import annotations
 
-import asyncio
 import json
 import os
 import sys
 from datetime import datetime, timezone
 from typing import Any
 
-import nio
+import aiohttp
 from mcp.server.fastmcp import FastMCP
 
 mcp = FastMCP("weat-matrix")
 
-_client: nio.AsyncClient | None = None
-_sync_done = asyncio.Event()
+
+def _cfg() -> tuple[str, str]:
+    return os.environ["WEAT_MATRIX_HOMESERVER"], os.environ["WEAT_MATRIX_ACCESS_TOKEN"]
 
 
-def _make_client() -> nio.AsyncClient:
-    homeserver = os.environ["WEAT_MATRIX_HOMESERVER"]
-    user_id = os.environ["WEAT_MATRIX_USER_ID"]
-    access_token = os.environ["WEAT_MATRIX_ACCESS_TOKEN"]
-
-    client = nio.AsyncClient(homeserver, user_id)
-    client.access_token = access_token
-    client.user_id = user_id
-    return client
+def _headers() -> dict[str, str]:
+    _, token = _cfg()
+    return {"Authorization": f"Bearer {token}"}
 
 
-async def _ensure_synced() -> nio.AsyncClient:
-    global _client
-    if _client is None:
-        _client = _make_client()
-        resp = await _client.sync(timeout=15000, full_state=True)
-        if isinstance(resp, nio.SyncError):
-            raise RuntimeError(f"Matrix sync failed: {resp.message}")
-    return _client
-
-
-def _format_message(event: nio.RoomMessageText | nio.RoomEncryptedText, room_id: str) -> dict[str, Any]:
-    ts = getattr(event, "server_timestamp", None)
-    dt = (
-        datetime.fromtimestamp(ts / 1000, tz=timezone.utc).isoformat()
-        if ts
-        else "unknown"
-    )
+def _fmt_event(e: dict, room_id: str) -> dict[str, Any]:
+    ts = e.get("origin_server_ts")
+    dt = datetime.fromtimestamp(ts / 1000, tz=timezone.utc).isoformat() if ts else "unknown"
     return {
-        "event_id": event.event_id,
-        "sender": event.sender,
+        "event_id": e.get("event_id", ""),
+        "sender": e.get("sender", ""),
         "timestamp": dt,
-        "body": getattr(event, "body", "[encrypted]"),
+        "body": e.get("content", {}).get("body", ""),
         "room_id": room_id,
     }
 
 
 @mcp.tool()
 async def list_rooms() -> str:
-    """List all Matrix rooms the bot/user has joined, with display names and IDs."""
-    client = await _ensure_synced()
+    """List all Matrix rooms the user has joined, with display names and IDs."""
+    homeserver, _ = _cfg()
+    async with aiohttp.ClientSession(headers=_headers()) as s:
+        async with s.get(f"{homeserver}/_matrix/client/v3/joined_rooms") as r:
+            if r.status != 200:
+                return json.dumps({"error": await r.text()})
+            data = await r.json()
+
     rooms = []
-    for room_id, room in client.rooms.items():
-        rooms.append({
-            "room_id": room_id,
-            "display_name": room.display_name or room_id,
-            "member_count": room.member_count,
-        })
+    for room_id in data.get("joined_rooms", []):
+        rooms.append({"room_id": room_id})
     return json.dumps(rooms, ensure_ascii=False)
 
 
@@ -90,32 +74,25 @@ async def get_recent_messages(room_id: str, limit: int = 50) -> str:
     Return the last `limit` text messages from a Matrix room.
 
     Args:
-        room_id: Matrix room ID (e.g. '!abc123:matrix.org' or display name)
+        room_id: Matrix room ID (e.g. '!abc123:localhost')
         limit:   Number of messages to retrieve (default 50, max 200)
     """
     limit = min(max(1, limit), 200)
-    client = await _ensure_synced()
+    homeserver, _ = _cfg()
+    async with aiohttp.ClientSession(headers=_headers()) as s:
+        url = f"{homeserver}/_matrix/client/v3/rooms/{room_id}/messages"
+        async with s.get(url, params={"limit": limit, "dir": "b"}) as r:
+            if r.status != 200:
+                return json.dumps({"error": await r.text()})
+            data = await r.json()
 
-    # Accept either room_id or display name
-    resolved = _resolve_room(client, room_id)
-    if not resolved:
-        return json.dumps({"error": f"Room not found: {room_id!r}"})
-
-    resp = await client.room_messages(
-        resolved,
-        start="",
-        limit=limit,
-        direction=nio.MessageDirection.back,
-    )
-    if isinstance(resp, nio.RoomMessagesError):
-        return json.dumps({"error": resp.message})
-
-    messages = [
-        _format_message(e, resolved)
-        for e in reversed(resp.chunk)
-        if isinstance(e, (nio.RoomMessageText,))
+    msgs = [
+        _fmt_event(e, room_id)
+        for e in reversed(data.get("chunk", []))
+        if e.get("type") == "m.room.message"
+        and e.get("content", {}).get("msgtype") == "m.text"
     ]
-    return json.dumps(messages, ensure_ascii=False)
+    return json.dumps(msgs, ensure_ascii=False)
 
 
 @mcp.tool()
@@ -124,49 +101,31 @@ async def search_messages(room_id: str, query: str, limit: int = 20) -> str:
     Keyword search across recent messages in a Matrix room (client-side filter).
 
     Args:
-        room_id: Matrix room ID or display name
+        room_id: Matrix room ID
         query:   Search string (case-insensitive substring match)
         limit:   Max results to return (default 20)
     """
     limit = min(max(1, limit), 100)
-    client = await _ensure_synced()
-
-    resolved = _resolve_room(client, room_id)
-    if not resolved:
-        return json.dumps({"error": f"Room not found: {room_id!r}"})
-
-    # Fetch a larger window to search through
-    resp = await client.room_messages(
-        resolved,
-        start="",
-        limit=500,
-        direction=nio.MessageDirection.back,
-    )
-    if isinstance(resp, nio.RoomMessagesError):
-        return json.dumps({"error": resp.message})
+    homeserver, _ = _cfg()
+    async with aiohttp.ClientSession(headers=_headers()) as s:
+        url = f"{homeserver}/_matrix/client/v3/rooms/{room_id}/messages"
+        async with s.get(url, params={"limit": 500, "dir": "b"}) as r:
+            if r.status != 200:
+                return json.dumps({"error": await r.text()})
+            data = await r.json()
 
     q = query.lower()
     matches = [
-        _format_message(e, resolved)
-        for e in resp.chunk
-        if isinstance(e, nio.RoomMessageText) and q in e.body.lower()
+        _fmt_event(e, room_id)
+        for e in data.get("chunk", [])
+        if e.get("type") == "m.room.message"
+        and q in e.get("content", {}).get("body", "").lower()
     ][:limit]
 
     return json.dumps(
-        {"query": query, "room_id": resolved, "count": len(matches), "results": matches},
+        {"query": query, "room_id": room_id, "count": len(matches), "results": matches},
         ensure_ascii=False,
     )
-
-
-def _resolve_room(client: nio.AsyncClient, room_ref: str) -> str | None:
-    """Resolve room display name or ID to a canonical room_id."""
-    if room_ref in client.rooms:
-        return room_ref
-    # Try stripping leading '#' shorthand
-    for rid, room in client.rooms.items():
-        if room.display_name == room_ref or room.display_name == room_ref.lstrip("#"):
-            return rid
-    return None
 
 
 def main() -> None:

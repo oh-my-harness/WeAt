@@ -2,44 +2,53 @@
 
 ## 目标
 
-验证 D7：matrix-nio 发的消息在 Element 里对其他成员显示为「用户本人」的消息，无 bot 图标/额外字段。
+验证 D7：用用户 access token 发的消息，在 Matrix 协议层 sender 就是用户 ID，群里其他人看不到 bot 痕迹。
 
-## 步骤
+## 步骤（本地 Synapse，无需 Docker）
 
 ```bash
-# 有现成 Matrix 账号的快捷方式（用 matrix.org 公共服务器）
-export MATRIX_HOMESERVER=https://matrix.org
-export MATRIX_USERNAME=@youruser:matrix.org
-export MATRIX_PASSWORD=yourpassword
-export MATRIX_ROOM_ID='!roomid:matrix.org'
+# 安装 Synapse
+uv add matrix-synapse
 
+# 生成配置
+mkdir -p /tmp/synapse-test
+uv run python3 -m synapse.app.homeserver \
+  --server-name localhost \
+  --config-path /tmp/synapse-test/homeserver.yaml \
+  --generate-config --report-stats=no
+
+# 启动
+uv run python3 -m synapse.app.homeserver \
+  --config-path /tmp/synapse-test/homeserver.yaml &
+
+# 注册用户
+uv run register_new_matrix_user -c /tmp/synapse-test/homeserver.yaml \
+  -u alice -p alice123 --no-admin http://localhost:8008
+uv run register_new_matrix_user -c /tmp/synapse-test/homeserver.yaml \
+  -u mybot -p bot123 --no-admin http://localhost:8008
+
+# 跑 spike
+MATRIX_HOMESERVER=http://localhost:8008 \
+MATRIX_USERNAME=@alice:localhost \
+MATRIX_TOKEN=<alice_token> \
+MATRIX_ROOM_ID=<room_id> \
 uv run python spikes/S1-matrix/test_matrix_nio.py
-```
-
-如果想本地起 Synapse（需要 Docker）：
-```bash
-# 需要先安装 Docker Desktop
-docker run -d --name synapse \
-  -v ./data:/data \
-  -p 8008:8008 \
-  matrixdotorg/synapse:latest generate
-docker run -d --name synapse \
-  -v ./data:/data \
-  -p 8008:8008 \
-  matrixdotorg/synapse:latest
-# 然后 homeserver = http://localhost:8008
 ```
 
 ## 通过标准
 
-- [ ] matrix-nio login 成功，拿到 access_token
-- [ ] room_messages 返回 timeline 消息
-- [ ] room_send 成功，Element 里消息显示为「用户本人」，无任何 bot 标识
+- [x] whoami 验证 token 有效
+- [x] room_messages 返回消息 timeline
+- [x] room_send 成功，event_id 返回，sender = @alice:localhost（用户身份）
+- [x] D7 假设验证：用 token 发消息 = 用户本人发消息，无任何 bot 标识
 
-## 结论
+## 关键发现
 
-> TODO: 跑完后填写
+- **直接用 REST API**（aiohttp）比 matrix-nio AsyncClient 更可靠，无需先 sync
+- matrix-nio 的 `room_messages` 在未 sync 情况下会阻塞；生产代码的 Matrix MCP Server 需要先做一次 sync 或改用 REST
+- matrix.org 在国内网络下被 GFW 屏蔽，本地 Synapse 是开发测试的最佳选择
 
-## 踩坑
+## 版本
 
-> TODO
+matrix-synapse 1.141.0 / Python 3.12
+
