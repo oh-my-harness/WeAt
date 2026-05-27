@@ -1,0 +1,49 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# uv
+.uv/
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Secrets / credentials
+*.token
+*.key
+matrix-tokens.json
+
+# SQLite
+*.db
+*.sqlite
+*.sqlite3
+
+# macOS
+.DS_Store
+
+# Editors
+.vscode/
+.idea/
+*.swp
+
+# Docker volumes / data dirs
+data/
+synapse-data/
+opencode-cache/
+
+# Spike scratch
+spikes/*/scratch/
