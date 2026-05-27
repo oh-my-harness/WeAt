@@ -4,12 +4,34 @@
 
 ---
 
+## 第零步：安装 Element 并注册 Matrix 账号
+
+Element 是最主流的 Matrix 客户端，WeAt 需要配合它使用。
+
+**安装 Element：**
+- macOS：[下载 Element.app](https://element.io/download) 或 `brew install --cask element`
+- Windows：[下载安装包](https://element.io/download)
+- iOS / Android：App Store / Google Play 搜「Element」
+- 网页版（无需安装）：[app.element.io](https://app.element.io)
+
+**注册账号：**
+1. 打开 Element → 点「Create account」
+2. 服务器选默认的 `matrix.org`（国内可能需要代理）
+3. 填用户名 + 密码，完成注册
+
+**邀请朋友进群：**
+1. 在 Element 左侧点「+」→「New room」创建群聊
+2. 进入群聊 → 右侧「People」→「Invite」→ 输入朋友的 Matrix ID（格式：`@username:matrix.org`）
+3. 朋友同样在 Element 注册，接受邀请即可加入
+
+---
+
 ## 快速上手（三步）
 
 **前置条件：**
 - Python 3.12+ + [uv](https://docs.astral.sh/uv/)
-- [opencode](https://opencode.ai/) ≥ 1.15
-- 一个 Matrix 账号（在 [matrix.org](https://app.element.io/#/register) 注册即可）
+- [opencode](https://opencode.ai/) ≥ 1.15（`npm install -g opencode` 或见官网）
+- 已有 Matrix 账号（上面第零步）
 - Obsidian vault 或任意 markdown 文件夹
 
 ```bash
@@ -25,7 +47,7 @@ uv run weat-setup
 uv run weat-bridge
 ```
 
-向导会询问：Matrix 用户名/密码、vault 路径、LLM API Key（DeepSeek / Anthropic / OpenAI）。配置完成后，打开 Element 找到「WeAt」房间，发 `/help` 开始。
+向导会询问：Matrix 用户名/密码、vault 路径、LLM API Key（DeepSeek / Anthropic / OpenAI）。配置完成后，在 Element 找到「WeAt」房间，发 `/help` 开始。
 
 ---
 
