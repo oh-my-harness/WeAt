@@ -109,7 +109,8 @@ uv run weat-bridge
 
 ```
 /weat-help                                    — 查看所有命令
-/weat-draft #开发组 解释上周那个 P1 是怎么修的   — 起草群聊回复
+/weat-reply #开发组 简单回应一下                — 快速起草，只看群聊（不查 vault）
+/weat-draft #开发组 解释上周那个 P1 是怎么修的   — 深度起草，结合 vault 知识库
 /weat-digest #开发组 本周                      — 生成本周群聊纪要
 ```
 

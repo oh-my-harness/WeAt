@@ -39,7 +39,8 @@ HELP_TEXT = """\
 **WeAt AI 副驾驶** — 命令列表：
 
 📝 **起草回复**
-`/weat-draft <频道> <主题>`  — 起草一条回复（如 `/weat-draft #开发组 解释上周的 P1`）
+`/weat-reply <频道> <主题>` — 快速起草，只看最近群聊（不查 vault，更快）
+`/weat-draft <频道> <主题>` — 深度起草，结合 vault 知识库（更全面，更慢）
 
 📋 **总结群聊**
 `/weat-digest <频道> <时间范围>` — 生成纪要草稿（如 `/weat-digest #开发组 本周`）
@@ -72,6 +73,21 @@ DRAFT_SYSTEM_PROMPT = f"""\
 输出格式：
 1. 直接给出草稿正文（不要加"草稿："前缀）
 2. 在草稿后空一行，列出引用来源（格式：📚 引用：[[笔记名]] / 群聊 发言人 时间）
+3. 在引用后空一行，用一句话描述你的步骤（格式：🤖 步骤：...）
+
+语气：和用户平时发言风格一致，自然、专业，不要过于正式。
+"""
+
+REPLY_SYSTEM_PROMPT = f"""\
+你是用户的私人 AI 副驾驶，帮助快速起草 Matrix 群聊回复。
+
+任务：只根据最近的群聊上下文起草一条自然、对话式的回复。**不要查阅个人知识库**。
+
+{_TOOL_BUDGET_RULES}
+
+输出格式：
+1. 直接给出草稿正文（不要加"草稿："前缀）
+2. 在草稿后空一行，列出引用来源（格式：📚 引用：群聊 发言人 时间）
 3. 在引用后空一行，用一句话描述你的步骤（格式：🤖 步骤：...）
 
 语气：和用户平时发言风格一致，自然、专业，不要过于正式。
@@ -210,6 +226,11 @@ class Orchestrator:
             await self._handle_retry(user_id)
             return
 
+        m = re.match(r"^/weat-reply\s+(\S+)\s+(.+)$", text, re.IGNORECASE | re.DOTALL)
+        if m:
+            await self._handle_reply(user_id, m.group(1), m.group(2).strip())
+            return
+
         m = re.match(r"^/weat-draft\s+(\S+)\s+(.+)$", text, re.IGNORECASE | re.DOTALL)
         if m:
             await self._handle_draft(user_id, m.group(1), m.group(2).strip())
@@ -225,9 +246,31 @@ class Orchestrator:
         if session and not session.is_expired:
             await self._handle_refinement(user_id, session, text)
         else:
-            await self._send("没有进行中的草稿。发 `/weat-draft <频道> <主题>` 开始起草，或 `/weat-help` 查看命令。")
+            await self._send("没有进行中的草稿。发 `/weat-reply <频道> <主题>` 开始起草，或 `/weat-help` 查看命令。")
 
     # ── Command handlers ──────────────────────────────────────────────────────
+
+    async def _handle_reply(self, user_id: str, target_room: str, topic: str) -> None:
+        await self.store.cancel_active_session(user_id)
+        session = await self.store.create_session(user_id, target_room, command_type="draft")
+
+        await self._send(f"⏳ 正在读取 {target_room} 并快速起草（不查 vault）…")
+
+        prompt = await self._build_reply_prompt(target_room, topic)
+        answer, opencode_sid = await self.runner.run(prompt)
+
+        if not answer:
+            await self._send("❌ Agent 未返回内容，请重试或检查 opencode 配置。")
+            await self.store.cancel_active_session(user_id)
+            return
+
+        session.draft_text = answer
+        session.opencode_session_id = opencode_sid
+        session.conversation_history.append({"role": "user", "content": f"/weat-reply {target_room} {topic}"})
+        session.conversation_history.append({"role": "assistant", "content": answer})
+        await self.store.update_session(session)
+
+        await self._send(self._format_draft_reply(answer, version=1))
 
     async def _handle_draft(self, user_id: str, target_room: str, topic: str) -> None:
         await self.store.cancel_active_session(user_id)
@@ -459,6 +502,24 @@ class Orchestrator:
                 rel = path
             out.append(f"📄 [[{rel}]]\n{snippet}")
         return "\n\n".join(out)
+
+    async def _build_reply_prompt(self, target_room: str, topic: str) -> str:
+        room_id = await self._resolve_room_id(target_room)
+        msg_block = "（未能解析目标房间，可用 list_rooms / get_recent_messages 工具补充）"
+        if room_id:
+            msgs = await self._fetch_recent_messages(room_id, limit=30)
+            msg_block = self._format_msg_block(msgs)
+            logger.info("pre-fetched %d messages from %s (reply)", len(msgs), room_id)
+
+        return (
+            f"{REPLY_SYSTEM_PROMPT}\n\n"
+            f"目标频道：{target_room}（room_id={room_id or '未知'}）\n"
+            f"用户指令：{topic}\n\n"
+            f"以下是该频道近期消息，请只基于此起草。**不要调用任何文件或 vault 工具**——\n"
+            f"这是一个快速回复，不需要查知识库。\n\n"
+            f"=== 该频道近期消息（按时间正序，最多 30 条） ===\n"
+            f"{msg_block}\n"
+        )
 
     async def _build_draft_prompt(self, target_room: str, topic: str) -> str:
         room_id = await self._resolve_room_id(target_room)
