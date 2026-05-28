@@ -23,7 +23,12 @@ class Config:
     osb_dist_path: str = ""        # path to obsidian-second-brain dist/opencode/
 
     # opencode settings
-    opencode_model: str = ""       # e.g. "deepseek/deepseek-chat"
+    opencode_model: str = ""       # e.g. "anthropic/claude-sonnet-4-6"
+    # Provider config block, written verbatim into opencode.jsonc by the bridge.
+    # Shape: {"id": "<key>", "name": "...", "npm": "...?", "options": {"apiKey": "...",
+    #         "baseURL": "...?"}, "models": {"<id>": {"name": "...", "limit": {...}}}}
+    # Empty → bridge falls back to opencode auth.json (legacy path).
+    opencode_provider: dict = field(default_factory=dict)
     opencode_extra_args: list[str] = field(default_factory=list)
 
     # Session settings

@@ -4,7 +4,7 @@ First-run configuration wizard — interactive CLI.
 Steps:
   1. Matrix homeserver + login (username + password)
   2. Vault path
-  3. LLM provider + API key  →  writes ~/.local/share/opencode/auth.json
+  3. LLM provider — full opencode provider block stored in weat.json
   4. Creates a private WeAt command room
   5. Writes weat.json
 """
@@ -20,15 +20,43 @@ import aiohttp
 
 from .settings import Config
 
-PROVIDERS = {
-    "1": ("deepseek", "DeepSeek（推荐，便宜）", "deepseek/deepseek-chat"),
-    "2": ("anthropic", "Anthropic (Claude)", "anthropic/claude-sonnet-4-5"),
-    "3": ("openai", "OpenAI", "openai/gpt-4o"),
+# Preset providers. baseURL omitted = opencode auto-resolves via models.dev.
+PROVIDER_PRESETS = {
+    "1": {
+        "label": "DeepSeek（便宜）",
+        "id": "deepseek",
+        "name": "DeepSeek",
+        "models": [
+            ("deepseek-chat", "DeepSeek Chat", 64000, 8192),
+            ("deepseek-reasoner", "DeepSeek Reasoner", 64000, 8192),
+        ],
+    },
+    "2": {
+        "label": "Anthropic (Claude)",
+        "id": "anthropic",
+        "name": "Anthropic",
+        "models": [
+            ("claude-sonnet-4-6", "Sonnet 4.6", 200000, 16384),
+            ("claude-haiku-4-5", "Haiku 4.5", 200000, 16384),
+            ("claude-opus-4-7", "Opus 4.7", 200000, 16384),
+        ],
+    },
+    "3": {
+        "label": "OpenAI",
+        "id": "openai",
+        "name": "OpenAI",
+        "models": [
+            ("gpt-4o", "GPT-4o", 128000, 16384),
+            ("gpt-4o-mini", "GPT-4o mini", 128000, 16384),
+        ],
+    },
+    "4": {
+        "label": "其他（OpenAI 兼容，需自己填 baseURL）",
+        "id": None,
+        "name": None,
+        "models": None,
+    },
 }
-
-
-def _opencode_auth_path() -> Path:
-    return Path.home() / ".local" / "share" / "opencode" / "auth.json"
 
 
 def _prompt(label: str, default: str = "", secret: bool = False) -> str:
@@ -36,6 +64,73 @@ def _prompt(label: str, default: str = "", secret: bool = False) -> str:
     prompt_str = f"  {label}{suffix}: "
     val = getpass.getpass(prompt_str) if secret else input(prompt_str).strip()
     return val or default
+
+
+def _build_provider_block(api_key: str) -> tuple[dict, str]:
+    """
+    Interactive prompts that produce (provider_block, opencode_model_string).
+    The returned block is shaped to be written verbatim into opencode.jsonc.
+    """
+    print()
+    print("  选择 AI 提供商：")
+    for k, v in PROVIDER_PRESETS.items():
+        print(f"    {k}. {v['label']}")
+    choice = _prompt("选择", default="1")
+    preset = PROVIDER_PRESETS.get(choice, PROVIDER_PRESETS["1"])
+
+    if preset["id"] is None:
+        # Custom OpenAI-compatible provider
+        provider_id = _prompt("Provider ID（小写字母数字，opencode 内部使用，如 myproxy）")
+        if not provider_id:
+            print("  ❌ Provider ID 不能为空。")
+            sys.exit(1)
+        provider_name = _prompt("Provider 显示名", default=provider_id)
+        base_url = _prompt("Base URL（如 https://api.example.com/v1）")
+        if not base_url:
+            print("  ❌ Base URL 不能为空。")
+            sys.exit(1)
+        model_id = _prompt("模型 ID（API 实际接受的 model 字段，如 claude-sonnet-4-6）")
+        if not model_id:
+            print("  ❌ 模型 ID 不能为空。")
+            sys.exit(1)
+        model_name = _prompt("模型显示名", default=model_id)
+        ctx_str = _prompt("Context 上限（tokens）", default="200000")
+        out_str = _prompt("Output 上限（tokens）", default="16384")
+        try:
+            ctx_limit = int(ctx_str)
+            out_limit = int(out_str)
+        except ValueError:
+            print("  ❌ 上限必须是数字。")
+            sys.exit(1)
+        npm = _prompt("NPM 适配器", default="@ai-sdk/openai-compatible")
+
+        block = {
+            "id": provider_id,
+            "name": provider_name,
+            "npm": npm,
+            "options": {"apiKey": api_key, "baseURL": base_url},
+            "models": {model_id: {"name": model_name, "limit": {"context": ctx_limit, "output": out_limit}}},
+        }
+        return block, f"{provider_id}/{model_id}"
+
+    # Preset provider
+    print(f"  选择 {preset['name']} 的模型：")
+    for i, (mid, mname, _, _) in enumerate(preset["models"], 1):
+        print(f"    {i}. {mname} ({mid})")
+    mchoice = _prompt("选择", default="1")
+    try:
+        idx = int(mchoice) - 1
+        model_id, model_name, ctx_limit, out_limit = preset["models"][idx]
+    except (ValueError, IndexError):
+        model_id, model_name, ctx_limit, out_limit = preset["models"][0]
+
+    block = {
+        "id": preset["id"],
+        "name": preset["name"],
+        "options": {"apiKey": api_key},
+        "models": {model_id: {"name": model_name, "limit": {"context": ctx_limit, "output": out_limit}}},
+    }
+    return block, f"{preset['id']}/{model_id}"
 
 
 async def _login(session: aiohttp.ClientSession, homeserver: str, user_id: str, password: str) -> str:
@@ -71,17 +166,17 @@ async def _create_weat_room(session: aiohttp.ClientSession, homeserver: str, tok
         return room_id
 
 
-def _write_opencode_auth(provider_key: str, api_key: str) -> None:
-    path = _opencode_auth_path()
-    path.parent.mkdir(parents=True, exist_ok=True)
-    existing: dict = {}
-    if path.exists():
-        try:
-            existing = json.loads(path.read_text())
-        except Exception:
-            pass
-    existing[provider_key] = {"type": "api", "key": api_key}
-    path.write_text(json.dumps(existing, indent=2))
+def _write_opencode_auth_clear(provider_id: str) -> None:
+    """Remove a stale entry from opencode auth.json so the inline apiKey wins."""
+    path = Path.home() / ".local" / "share" / "opencode" / "auth.json"
+    if not path.exists():
+        return
+    try:
+        existing = json.loads(path.read_text())
+    except Exception:
+        return
+    if existing.pop(provider_id, None) is not None:
+        path.write_text(json.dumps(existing, indent=2))
 
 
 async def run_wizard(config_path: Path) -> None:
@@ -137,20 +232,15 @@ async def run_wizard(config_path: Path) -> None:
                 print("  请先创建 vault 目录后重新运行向导。")
                 sys.exit(1)
 
-        # ── Step 3: LLM API key ───────────────────────────────────────────────
+        # ── Step 3: LLM provider ──────────────────────────────────────────────
         print()
-        print("  选择 AI 提供商：")
-        for k, (_, label, _) in PROVIDERS.items():
-            print(f"    {k}. {label}")
-        choice = _prompt("选择", default="1")
-        provider_key, _, default_model = PROVIDERS.get(choice, PROVIDERS["1"])
-
-        api_key = _prompt(f"  API Key", secret=True)
+        api_key = _prompt("AI API Key", secret=True)
         if not api_key:
             print("  ❌ API Key 不能为空。")
             sys.exit(1)
-        _write_opencode_auth(provider_key, api_key)
-        print(f"  ✅ opencode 配置完成（{_opencode_auth_path()}）")
+        provider_block, opencode_model = _build_provider_block(api_key)
+        _write_opencode_auth_clear(provider_block["id"])
+        print(f"  ✅ 模型设置完成：{opencode_model}")
 
         # ── Step 4: WeAt room ─────────────────────────────────────────────────
         print()
@@ -183,7 +273,8 @@ async def run_wizard(config_path: Path) -> None:
         access_token=token,
         weat_room_id=weat_room_id,
         vault_path=vault_path,
-        opencode_model=default_model,
+        opencode_model=opencode_model,
+        opencode_provider=provider_block,
     )
     config.save(config_path)
 
@@ -194,7 +285,7 @@ async def run_wizard(config_path: Path) -> None:
     print("下一步：")
     print(f"  1. 打开 Element，登录 {user_id}")
     print(f"  2. 找到「WeAt」房间（房间 ID：{weat_room_id}）")
-    print(f"  3. 发送 /help 开始使用")
+    print(f"  3. 发送 /weat-help 开始使用")
     print()
 
 
