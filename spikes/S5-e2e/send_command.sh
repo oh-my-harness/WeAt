@@ -21,6 +21,9 @@ fi
 
 COMMAND="${1:-/weat-help}"
 
+# Capture send time before the request so poll_replies.sh can use it
+SEND_TS=$(date +%s)000
+
 # Send the command
 TXN_ID="weat_$(date +%s%3N)"
 curl -s -X PUT \
@@ -54,3 +57,5 @@ for e in reversed(data.get('chunk', [])):
 else:
     print('(no bot reply yet — for slow commands like /weat-draft, run ./poll_replies.sh to wait longer)')
 "
+
+echo "(tip: for slow commands, run: ./spikes/S5-e2e/poll_replies.sh $SEND_TS)"

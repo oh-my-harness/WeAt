@@ -2,7 +2,8 @@
 # poll_replies.sh — wait up to 90s for a bot reply (use after slow commands like /weat-draft)
 #
 # Usage:
-#   ./spikes/S5-e2e/poll_replies.sh
+#   ./spikes/S5-e2e/poll_replies.sh [SEND_TS_MS]
+#   SEND_TS_MS — optional ms timestamp from send_command.sh; defaults to now
 
 # ── Same values as send_command.sh ───────────────────────────────────────────
 HOMESERVER="http://localhost:8008"
@@ -18,7 +19,9 @@ fi
 TIMEOUT=90
 INTERVAL=3
 ELAPSED=0
-SENT_AFTER=$(date +%s)000   # ms timestamp — only show replies from after now
+# Accept explicit send timestamp (ms) so replies that arrived before this script
+# started are not filtered out. Falls back to now if called standalone.
+SENT_AFTER="${1:-$(date +%s)000}"
 
 echo "Polling for bot reply (up to ${TIMEOUT}s)..."
 
