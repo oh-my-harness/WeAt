@@ -1,143 +1,189 @@
-# WeAt Web — 自研 Matrix 聊天客户端（内嵌 AI 副驾驶）
+# WeAt Web — 自研矩阵聊天客户端
 
-## 为什么
+## 一句话
 
-现有 WeAt 依赖用户安装 Element 客户端和 Matrix 账号，团队普遍不愿意用。
-核心问题是安装门槛太高，大家习惯打开浏览器就能聊天。
-
-保持 Matrix 协议层不变（复用 Synapse 服务器），自研一个轻量 Web 聊天客户端，
-把 AI 起草能力内嵌进去，手机+桌面都能用。
-
-## 技术栈
-
-```
-前端: React + TypeScript + Tailwind CSS
-后端: Python + FastAPI + aiohttp (Matrix REST API)
-AI:   Rust sidecar (基于 llm-harness-core + llm-harness-runtime)
-```
+**小团队沟通 + AI 副驾驶，打开浏览器就能用，无需安装任何东西。**
 
 ## 架构
 
 ```
-┌──────────────────────────────────────────────────┐
-│ Web 前端 (React SPA)                              │
-│ 登录 / 房间列表 / 聊天 / AI 起草面板              │
-└────────▲────────────▲─────────────────────────────┘
-         │ WebSocket  │ HTTP/SSE
-         ▼            ▼
-┌──────────────────────────────────────────────────┐
-│ Python 后端 (FastAPI)                             │
-│ ┌──────────────┐ ┌──────────────┐ ┌────────────┐ │
-│ │ Matrix sync  │ │ WebSocket    │ │ Agent      │ │
-│ │ 消息推送     │ │ 消息路由     │ │ Bridge     │ │
-│ │ (aiohttp)    │ │              │ │ (调 Rust)  │ │
-│ └──────────────┘ └──────────────┘ └─────┬──────┘ │
-└──────────────────────────────────────────────────┘
-                                         │ subprocess
-                                         ▼
-┌──────────────────────────────────────────────────┐
-│ Rust Agent Sidecar (llm-harness-core)            │
-│ LLM 调用 / 工具调用 / Agent 循环                  │
-│ ┌──────────┐ ┌──────────┐ ┌──────────────────┐  │
-│ │ LLM Adpt │ │ Vault    │ │ MCP Client (读   │  │
-│ │ (多provider) │工具(Read│ │ 群聊历史)        │  │
-│ │            │ │ /Grep)  │ │                  │  │
-│ └──────────┘ └──────────┘ └──────────────────┘  │
-└──────────────────────────────────────────────────┘
+用户浏览器
+┌──────────────────────────────────────────────┐
+│  React 前端                                  │
+│  ┌──────────┐  ┌──────────┐  ┌────────────┐ │
+│  │ 聊天界面  │  │ AI 起草  │  │ 本地 vault │ │
+│  │ 房间列表  │  │ (JS Agent)│  │ (File API) │ │
+│  │ 消息收发  │  │ 调 LLM   │  │            │ │
+│  └─────┬────┘  └──────────┘  └────────────┘ │
+└────────┼─────────────────────────────────────┘
+         │ WebSocket / HTTP
+         ▼
+WeAt 后端 (Python FastAPI, 服务器上 ~50MB)
+┌──────────────────────────────────────────────┐
+│  ┌──────────┐  ┌──────────┐  ┌────────────┐ │
+│  │ Conduit  │  │ WebSocket│  │ 用户管理   │ │
+│  │ API 封装  │  │ 消息推送  │  │ admin CLI  │ │
+│  └─────┬────┘  └──────────┘  └────────────┘ │
+└────────┼─────────────────────────────────────┘
+         ▼
+Conduit (Rust Matrix 服务端, 内存 ~30MB)
+  — 消息路由 / 房间管理 / 消息存储
+```
+
+## 技术栈
+
+| 层 | 选型 |
+|---|---|
+| 消息后端 | **Conduit**（Rust，docker 里跑单二进制） |
+| Web 后端 | Python + **FastAPI** + aiohttp + uvicorn |
+| 前端 | **React + TypeScript + Tailwind CSS**（Vite） |
+| AI Agent | **浏览器端 TypeScript**（直接 fetch LLM API，tool calling） |
+| 部署 | docker-compose（Conduit + WeAt + Nginx + HTTPS） |
+
+## 用户模型
+
+- 一个服务器 = 一个团队（不开放 Federation）
+- 管理员 `weat-admin add-user` 创建账号
+- 用户用用户名 + 密码登录（对 Matrix 完全透明）
+- 每个用户自备 LLM API Key（存在浏览器 sessionStorage/IndexedDB）
+- MVP 不做 E2EE（明文房间）
+
+## 数据流（发消息）
+
+```
+Alice 浏览器: 输入消息 → WebSocket → WeAt 后端
+  → WeAt 调用 Conduit REST: POST /rooms/{id}/send
+  → 其他用户浏览器 sync 到新消息 → 显示
+```
+
+## 数据流（AI 起草）
+
+```
+Alice 看到 Bob 的消息 → 点 "AI 起草"
+  → 浏览器 JS agent 启动：
+     1. 调后端: GET /rooms/{id}/messages → 取群聊历史
+     2. 调 LLM API (fetch, 带 tool calling)
+     3. 如果需要读 vault → 浏览器 File API 读本地文件
+     4. Agent 返回草稿文本
+  → 显示草稿面板，Alice 修改
+  → 满意 → 调后端: POST /rooms/{id}/send → (以 Alice 身份发出)
+  → LLM Key 全程在浏览器，不经过服务器
 ```
 
 ## 分阶段实现
 
-### Phase 1: MVP Web 客户端（纯聊天，不含 AI）
+### Phase 1: MVP Web 客户端（纯聊天）
 
-目标：能登录、看到群聊列表、收发消息，手机可用。
+目标：登录 → 房间列表 → 收发消息，手机可用。
 
-**后端 Python 模块** (新增 `weat_web/backend/`)：
-- `app.py` — FastAPI + WebSocket 端点
-  - `POST /api/login` — Matrix 登录（密码或 token）
-  - `GET /api/rooms` — 已加入房间列表
-  - `GET /api/rooms/{id}/messages?limit=N` — 历史消息
-  - `POST /api/rooms/{id}/messages` — 发送消息
-  - `WS /ws` — 实时消息推送
-- `matrix_sync.py` — Matrix sync 循环
-  - aiohttp 长轮询 Matrix /sync
-  - 推送新消息到 WebSocket 连接
+**后端** (`backend/`)：
+- FastAPI + uvicorn
+- `POST /api/login` — 通过 Conduit REST 登录 Matrix（用户名/密码 → access_token）
+- `GET /api/rooms` — 已加入的房间列表
+- `GET /api/rooms/{id}/messages?limit=N` — 历史消息
+- `POST /api/rooms/{id}/messages` — 发送消息
+- `WS /ws` — WebSocket 实时推送新消息
+- 后台 sync 循环（aiohttp 调 Conduit /sync）
+- `conduit_api.py` — Conduit REST 封装
+- `admin_cli.py` — `weat-admin add-user / list-users / reset-password`
 
-**前端 React 模块** (新增 `weat_web/frontend/`)：
-- `LoginPage.tsx` — 登录页（服务器 + 用户名 + 密码/token）
-- `RoomList.tsx` — 房间列表（侧栏）
-- `ChatPage.tsx` — 聊天页面（消息列表 + 输入框）
-- `websocket.ts` — WebSocket 客户端封装
-- 移动端适配 (Tailwind CSS 响应式)
+**前端** (`frontend/`)：
+- 登录页（用户名 + 密码）
+- 房间列表（侧栏/底部导航/响应式）
+- 聊天页面（消息列表 + 输入框）
+- 手机适配
+- 消息渲染（支持简单 markdown）
 
-**依赖**：
-- Python: `fastapi`, `uvicorn`, `websockets`, `aiohttp`
-- JS: `react`, `react-router`, `tailwindcss`, `vite`
+### Phase 2: 浏览器 AI Agent
 
-### Phase 2: Rust Agent Sidecar
+目标：浏览器端 JS agent，可调 LLM + 工具循环。
 
-目标：AI agent 可独立运行，Python 通过 HTTP 调它。
-
-**Rust 项目** (新增 `agent-sidecar/`)：
-- 基于 `llm-harness-core` 的 `Agent` 封装
-- 自实现工具: `read_file`, `grep`, `list_dir` (vault 访问)
-- MCP 客户端: 调现有 `matrix_mcp/server.py` 读群聊
-- HTTP API: `POST /agent/run` → SSE 流式返回
-- 可执行二进制，Python 子进程启动
+- `agent.ts` — Agent 循环（tools → LLM → parse → next turn）
+- `tools/read_vault.ts` — 浏览器 File API 读用户选择的本地文件
+- `tools/get_room_history.ts` — 调后端 API 获取群聊历史
+- Agent 注册一个全局工具列表，附 JSON Schema
 
 ### Phase 3: AI 起草集成
 
 目标：聊天界面里 AI 起草直达。
 
-- 前端 `AIAssistant.tsx` — 草稿面板
-- 消息旁"AI 起草"按钮 → 弹出草稿区
-- 草稿可编辑、可发修改指令多轮调整
-- 满意度 → "以我身份发送"
+- 每条消息旁 "AI 起草" 按钮
+- 点击后弹出草稿面板
+- Agent 自动取群聊上下文 → LLM → 显示草稿
+- 用户可编辑草稿、修改指令（"缩短到两句话"）
+- 满意后一键发送（以用户身份）
 
 ### Phase 4: Vault 集成
 
-目标：AI 起草时能查 vault 笔记。
+目标：AI 起草时引用 vault 笔记。
 
-- Rust sidecar 添加 vault 文件工具
-- 复用 obsidian-second-brain 规范
-- 前端 vault 搜索（可选）
+- 用户通过浏览器选择 vault 目录（OPFS 或 File API）
+- Agent 新增 tool: `search_vault(keyword)` → 读 .md 文件
+- 草稿中标注 📚 来源引用
 
-## 关键文件
+### Phase 5: 部署
+
+目标：一键部署到云服务器或个人电脑 + 内网穿透。
+
+- docker-compose.yml（Conduit + WeAt + Nginx）
+- Nginx HTTPS（Let's Encrypt）/ HTTP 开发模式
+- 安装脚本：git clone → docker-compose up → weat-admin init
+- 内网穿透指南（Cloudflare Tunnel / Tailscale）
+
+## 文件结构
 
 ```
-weat_web/
-  backend/
-    __init__.py
-    app.py              — FastAPI + WebSocket
-    matrix_sync.py      — Matrix sync 循环
-    agent_bridge.py     — Rust sidecar 客户端
-  frontend/
-    package.json
-    index.html
-    src/
-      main.tsx          — 入口
-      App.tsx           — 路由
-      LoginPage.tsx     — 登录
-      RoomList.tsx      — 房间列表
-      ChatPage.tsx      — 聊天页面
-      AIAssistant.tsx   — AI 草稿面板
-      websocket.ts      — WS 客户端
-
-agent-sidecar/
-  Cargo.toml
-  src/
-    main.rs             — HTTP 服务器
-    agent.rs            — Agent 封装
-    tools.rs            — 工具实现
+/
+├── PLAN.md
+├── docker-compose.yml
+├── Dockerfile
+├── nginx.conf
+│
+├── backend/
+│   ├── main.py              — FastAPI 入口 + uvicorn
+│   ├── conduit_api.py       — Conduit REST API 封装
+│   ├── sync_loop.py         — Matrix sync 后台循环
+│   ├─- admin_cli.py         — weat-admin 命令行
+│   ├── user_store.py        — SQLite 用户配置
+│   └── requirements.txt
+│
+├── frontend/
+│   ├── package.json
+│   ├── vite.config.ts
+│   ├── tsconfig.json
+│   ├── index.html
+│   ├── tailwind.config.js
+│   └── src/
+│       ├── main.tsx
+│       ├── App.tsx
+│       ├── LoginPage.tsx
+│       ├── RoomList.tsx
+│       ├── ChatPage.tsx
+│       ├── AIAssistant.tsx   — AI 起草面板
+│       ├── agent.ts          — 浏览器端 Agent 循环
+│       ├── tools/            — Agent 工具
+│       ├── websocket.ts
+│       └── api.ts            — 后端 HTTP 客户端
+│
+└── conduit/
+    └── config.toml           — Conduit 配置模板
 ```
+
+## 关键设计原则
+
+1. **用户 0 安装** — 只需要浏览器
+2. **LLM Key 不出浏览器** — 服务器不碰用户 key，不做代付
+3. **AI 以用户身份发送** — 群聊其他人看不到 AI 痕迹
+4. **最少代码** — 后端只做消息代理，不做 AI
+5. **手机可用** — 响应式设计，Phase 1 就适配
 
 ## 验证
 
-1. 启动本地 Synapse
-2. `uv run weat-web` 启动后端
-3. 浏览器打开前端
-4. 用已有 Matrix 账号登录
-5. ✅ 看到房间列表
-6. ✅ 收发消息
+1. `docker-compose up`
+2. `weat-admin add-user alice pwd123`
+3. 浏览器打开 http://localhost:8080
+4. alice 登录 → 看到 empty room list
+5. 创建房间 → 发消息 → 刷新能看到历史
+6. 手机浏览器打开同样的地址 → 能用
 7. Phase 3: AI 起草 → 编辑 → 发送
-8. Phase 4: AI 引用 vault 笔记
+8. 内网穿透后外部设备也能访问

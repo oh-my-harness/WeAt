@@ -1,0 +1,42 @@
+# WeAt Web — 开发环境
+# Tuwunel (Matrix server) + WeAt Web 后端 (FastAPI)
+#
+# 使用方法:
+#   docker compose up -d                    # 启动 Matrix + 后端
+#   docker compose up matrix -d             # 只启动 Matrix 服务
+#   uv run uvicorn backend.main:app --reload  # 本地启动后端（热重载）
+#   cd frontend && npm run dev              # 本地启动前端（HMR）
+
+services:
+  matrix:
+    image: ghcr.io/matrix-construct/tuwunel:latest
+    container_name: weat_matrix
+    restart: unless-stopped
+    ports:
+      - "8008:8008"
+    volumes:
+      - matrix-data:/var/lib/tuwunel
+    environment:
+      TUWUNEL_SERVER_NAME: localhost
+      TUWUNEL_ADDRESS: 0.0.0.0
+      TUWUNEL_PORT: 8008
+      TUWUNEL_ALLOW_REGISTRATION: "true"
+      TUWUNEL_YES_I_AM_VERY_VERY_SURE_I_WANT_AN_OPEN_REGISTRATION_SERVER_PRONE_TO_ABUSE: "true"
+      TUWUNEL_ALLOW_FEDERATION: "false"
+      TUWUNEL_LOG: info
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: weat_backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      MATRIX_BASE: http://matrix:8008
+    depends_on:
+      - matrix
+
+volumes:
+  matrix-data:
