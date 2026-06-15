@@ -91,8 +91,9 @@ async function apiFetch<T>(
   options: RequestInit = {}
 ): Promise<T> {
   const token = getToken();
-  const params = token ? `?token=${encodeURIComponent(token)}` : "";
-  const url = `${API_BASE}${path}${path.includes("?") ? "&" : params.startsWith("?") ? params : ""}`;
+  const separator = path.includes("?") ? "&" : "?";
+  const tokenParam = token ? `${separator}token=${encodeURIComponent(token)}` : "";
+  const url = `${API_BASE}${path}${tokenParam}`;
   const res = await fetch(url, {
     headers: { "Content-Type": "application/json", ...options.headers },
     ...options,
@@ -149,6 +150,9 @@ export async function sendMessage(
 const WS_RECONNECT_DELAY = 2000;
 const WS_MAX_RECONNECT = 30_000;
 
+let _wsInstance: WebSocket | null = null;
+let _wsReconnectTimer: ReturnType<typeof setTimeout> | null = null;
+
 export function useWebSocket(onEvent: (data: any) => void) {
   const wsRef = useRef<WebSocket | null>(null);
   const onEventRef = useRef(onEvent);
@@ -158,11 +162,22 @@ export function useWebSocket(onEvent: (data: any) => void) {
     const token = getToken();
     if (!token) return;
 
+    // 去重：防止 React StrictMode 重复连接
+    if (_wsInstance && _wsInstance.readyState === WebSocket.OPEN) {
+      wsRef.current = _wsInstance;
+      return;
+    }
+    if (_wsInstance && _wsInstance.readyState === WebSocket.CONNECTING) {
+      wsRef.current = _wsInstance;
+      return;
+    }
+
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     const host = window.location.host;
     const url = `${protocol}//${host}/ws?token=${encodeURIComponent(token)}`;
 
     const ws = new WebSocket(url);
+    _wsInstance = ws;
     wsRef.current = ws;
 
     ws.onopen = () => console.log("WS connected");
@@ -175,15 +190,18 @@ export function useWebSocket(onEvent: (data: any) => void) {
       }
     };
     ws.onclose = () => {
+      _wsInstance = null;
       console.log("WS disconnected, reconnecting...");
-      setTimeout(() => connect(), WS_RECONNECT_DELAY);
+      _wsReconnectTimer = setTimeout(() => connect(), WS_RECONNECT_DELAY);
     };
     ws.onerror = () => ws.close();
   }, []);
 
   const disconnect = useCallback(() => {
+    if (_wsReconnectTimer) clearTimeout(_wsReconnectTimer);
     wsRef.current?.close();
     wsRef.current = null;
+    _wsInstance = null;
   }, []);
 
   return { connect, disconnect };

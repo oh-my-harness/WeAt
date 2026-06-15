@@ -147,7 +147,7 @@ async def websocket_endpoint(ws: WebSocket, token: str = Query(...)):
         return
 
     send_queue: asyncio.Queue = asyncio.Queue()
-    sync_manager.register_ws(user_id, send_queue)
+    sync_manager.register_ws(user_id, token, send_queue)
 
     try:
         # 发送欢迎事件

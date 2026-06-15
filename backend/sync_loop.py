@@ -2,7 +2,7 @@
 Matrix sync 循环 — 每用户独立后台任务
 
 工作方式：
-1. 用户建立 WebSocket 连接时，启动一个后台 sync 任务
+1. 用户建立 WebSocket 连接时，带上 token 启动一个后台 sync 任务
 2. 循环调用 Tuwunel /sync（long polling）
 3. 有事件时通过 WebSocket 推送给前端
 4. 用户断开连接时取消 sync 任务
@@ -23,14 +23,16 @@ class SyncManager:
 
     def __init__(self) -> None:
         self._tasks: dict[str, asyncio.Task] = {}
-        self._connections: dict[str, set] = {}  # user_id → set of websocket send queues
+        self._tokens: dict[str, str] = {}               # user_id → access_token
+        self._connections: dict[str, set] = {}           # user_id → set of websocket send queues
 
-    def register_ws(self, user_id: str, send_queue: asyncio.Queue) -> None:
-        """注册一个 WebSocket 连接的发送队列。"""
+    def register_ws(self, user_id: str, token: str, send_queue: asyncio.Queue) -> None:
+        """注册一个 WebSocket 连接的发送队列，并存储 token。"""
         self._connections.setdefault(user_id, set()).add(send_queue)
+        self._tokens[user_id] = token
         if user_id not in self._tasks:
             self._tasks[user_id] = asyncio.create_task(
-                self._sync_loop(user_id, send_queue),
+                self._sync_loop(user_id),
                 name=f"sync-{user_id}",
             )
             logger.info("Started sync loop for %s", user_id)
@@ -51,12 +53,18 @@ class SyncManager:
         for q in self._connections.get(user_id, set()):
             await q.put(msg)
 
-    async def _sync_loop(self, user_id: str, token: str | None = None) -> None:
+    async def _sync_loop(self, user_id: str) -> None:
         """每个用户的 sync 后台循环。"""
         next_batch: str | None = None
         while True:
             try:
-                data = await matrix_api.sync(token or "", since=next_batch, timeout=30000)
+                token = self._tokens.get(user_id)
+                if not token:
+                    logger.warning("No token for %s, waiting...", user_id)
+                    await asyncio.sleep(5)
+                    continue
+
+                data = await matrix_api.sync(token, since=next_batch, timeout=30000)
                 if isinstance(data, bytes):
                     logger.warning("sync returned non-JSON for %s, retrying", user_id)
                     await asyncio.sleep(5)
