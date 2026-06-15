@@ -28,14 +28,18 @@ export default function ChatPage({
   const [loading, setLoading] = useState(true);
   const [draftTarget, setDraftTarget] = useState<string | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  const messagesRef = useRef(messages);
+  messagesRef.current = messages;
   const userId = getUserId();
   const llmConfig = getLLMConfig();
 
   // 加载历史消息
   useEffect(() => {
+    const controller = new AbortController();
     setLoading(true);
-    fetchMessages(room.room_id, 50)
+    fetchMessages(room.room_id, 50, controller.signal)
       .then((mxMsgs) => {
+        if (controller.signal.aborted) return;
         const msgs: ChatMessage[] = mxMsgs.map((m) => ({
           id: m.event_id,
           room_id: room.room_id,
@@ -44,16 +48,18 @@ export default function ChatPage({
           ts: m.origin_server_ts,
           pending: false,
         }));
-        // 去重
-        const existingIds = new Set(messages.map((m) => m.id));
+        // 去重：用 ref 避免闭包滞后
+        const existingIds = new Set(messagesRef.current.map((m) => m.id));
         const newMsgs = msgs.filter((m) => !existingIds.has(m.id));
         newMsgs.forEach((m) => onAddMessage(m));
         setLoading(false);
       })
       .catch((e) => {
+        if (controller.signal.aborted) return;
         console.error("Failed to load messages", e);
         setLoading(false);
       });
+    return () => controller.abort();
   }, [room.room_id]);
 
   // 自动滚动到底部
@@ -83,10 +89,10 @@ export default function ChatPage({
 
     try {
       const result = await sendMessage(room.room_id, text);
-      onAddMessage({ ...optimistic, id: result.event_id, pending: false });
+      onAddMessage({ ...optimistic, id: result.event_id, pending: false, _tempId: tempId });
     } catch (e) {
       console.error("Send failed", e);
-      onAddMessage({ ...optimistic, pending: false });
+      onAddMessage({ ...optimistic, pending: false, failed: true });
     } finally {
       setSending(false);
     }
@@ -173,7 +179,7 @@ export default function ChatPage({
                     isMe
                       ? "bg-blue-600 text-white rounded-br-md"
                       : "bg-white border rounded-bl-md"
-                  } ${msg.pending ? "opacity-60" : ""}`}
+                  } ${msg.pending ? "opacity-60" : ""} ${msg.failed ? "border-red-400" : ""}`}
                 >
                   {/* 对方名字 */}
                   {!isMe && (
@@ -191,6 +197,7 @@ export default function ChatPage({
                   <div className={`text-xs mt-1 flex items-center gap-1 ${isMe ? "text-blue-200" : "text-gray-400"}`}>
                     <span>{formatTime(msg.ts)}</span>
                     {msg.pending && <span>发送中…</span>}
+                    {msg.failed && <span className="text-red-400">发送失败</span>}
                   </div>
                 </div>
 
@@ -240,6 +247,7 @@ export default function ChatPage({
         <DraftPanel
           roomId={room.room_id}
           llmConfig={llmConfig}
+          targetMessage={draftTarget}
           onClose={() => setDraftTarget(null)}
           onSend={handleDraftSend}
         />

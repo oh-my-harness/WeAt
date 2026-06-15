@@ -46,6 +46,8 @@ class SyncManager:
             if task:
                 task.cancel()
                 logger.info("Stopped sync loop for %s (no WS connections)", user_id)
+            self._tokens.pop(user_id, None)
+            self._connections.pop(user_id, None)
 
     async def send_to_user(self, user_id: str, event: dict) -> None:
         """向用户的所有连接广播事件。"""

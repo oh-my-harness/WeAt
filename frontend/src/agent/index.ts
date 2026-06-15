@@ -13,7 +13,6 @@ import type {
   AgentEvent,
   Message,
   AssistantMessage,
-  ToolCall,
 } from "./types";
 import { streamLLM } from "./llm";
 
@@ -54,10 +53,6 @@ export async function runAgent(
         signal,
         // onDelta
         (text) => onEvent({ type: "thinking", text }),
-        // onToolCalls
-        (calls) => {
-          onEvent({ type: "message", message: { role: "assistant", content: response?.content || "", toolCalls: calls, stopReason: "toolUse" } });
-        },
       );
     } catch (err: any) {
       onEvent({ type: "error", message: err.message || "LLM call failed" });
@@ -65,6 +60,11 @@ export async function runAgent(
     }
 
     messages.push(response);
+
+    // Emit message event after response is fully available
+    if (response.toolCalls?.length) {
+      onEvent({ type: "message", message: response });
+    }
 
     // No tool calls → 返回文本
     if (!response.toolCalls || response.toolCalls.length === 0) {

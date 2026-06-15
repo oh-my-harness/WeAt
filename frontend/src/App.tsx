@@ -66,7 +66,11 @@ export default function App() {
           ts: data.origin_server_ts || Date.now(),
           pending: false,
         };
-        setMessages((prev) => [...prev, msg]);
+        setMessages((prev) => {
+          // 二次去重：prev 可能已包含此消息（ChatPage fetch 在 WS 事件入队后已提交）
+          if (prev.some((m) => m.id === data.event_id)) return prev;
+          return [...prev, msg];
+        });
       }
     }
   }, [activeRoom?.room_id]);
@@ -83,13 +87,17 @@ export default function App() {
 
   const handleAddMessage = useCallback((msg: ChatMessage) => {
     setMessages((prev) => {
-      const idx = prev.findIndex((m) => m.id === msg.id);
+      // When a confirmed message arrives with a _tempId, remove the orphan temp entry first
+      const withoutTemp = msg._tempId
+        ? prev.filter((m) => m.id !== msg._tempId)
+        : prev;
+      const idx = withoutTemp.findIndex((m) => m.id === msg.id);
       if (idx >= 0) {
-        const next = [...prev];
+        const next = [...withoutTemp];
         next[idx] = msg;
         return next;
       }
-      return [...prev, msg];
+      return [...withoutTemp, msg];
     });
   }, []);
 

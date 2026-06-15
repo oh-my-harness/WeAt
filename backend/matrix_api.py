@@ -5,6 +5,7 @@ Tuwunel (Matrix) REST API 封装
 所有方法返回 dict, 调用方处理异常。
 """
 
+import asyncio
 import logging
 import os
 from typing import Any
@@ -86,21 +87,26 @@ async def get_rooms(token: str) -> list[dict]:
     """获取已加入的房间列表。返回 [room, ...]。"""
     data = await _get("/_matrix/client/v3/joined_rooms", token)
     rooms = data.get("joined_rooms", [])
-    result = []
-    for room_id in rooms:
-        name_data = await _get(f"/_matrix/client/v3/rooms/{room_id}/state/m.room.name", token)
-        name = ""
-        if isinstance(name_data, dict):
-            name = name_data.get("name", "")
-        result.append({"room_id": room_id, "name": name})
-    return result
+
+    async def _fetch_name(room_id: str) -> dict:
+        try:
+            name_data = await _get(f"/_matrix/client/v3/rooms/{room_id}/state/m.room.name", token)
+            name = name_data.get("name", "") if isinstance(name_data, dict) else ""
+        except Exception:
+            # m.room.name is optional in Matrix; unnamed rooms (DMs, new rooms) return 404
+            name = ""
+        return {"room_id": room_id, "name": name}
+
+    return list(await asyncio.gather(*[_fetch_name(r) for r in rooms]))
 
 
 async def get_messages(room_id: str, token: str, limit: int = 50) -> list[dict]:
-    """获取房间历史消息。返回 [message, ...]。"""
+    """获取房间历史消息。返回 [message, ...]，只含 m.room.message 事件。"""
     params = {"dir": "b", "limit": str(limit)}
     data = await _get(f"/_matrix/client/v3/rooms/{room_id}/messages", token, params=params)
-    return data.get("chunk", [])
+    if isinstance(data, bytes):
+        return []
+    return [e for e in data.get("chunk", []) if e.get("type") == "m.room.message"]
 
 
 async def send_message(room_id: str, token: str, body: str) -> dict:

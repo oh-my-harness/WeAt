@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import type { LLMConfig } from "./agent/types";
 import { runAgent } from "./agent";
 import { createGetRoomHistoryTool } from "./tools/getRoomHistory";
@@ -6,11 +6,12 @@ import { createGetRoomHistoryTool } from "./tools/getRoomHistory";
 interface Props {
   roomId: string;
   llmConfig: LLMConfig;
+  targetMessage?: string;
   onClose: () => void;
   onSend: (text: string) => void;
 }
 
-export default function DraftPanel({ roomId, llmConfig, onClose, onSend }: Props) {
+export default function DraftPanel({ roomId, llmConfig, targetMessage, onClose, onSend }: Props) {
   const [draft, setDraft] = useState("");
   const [status, setStatus] = useState<"idle" | "generating" | "editing">("idle");
   const [instruction, setInstruction] = useState("");
@@ -22,6 +23,10 @@ export default function DraftPanel({ roomId, llmConfig, onClose, onSend }: Props
 
     const ac = new AbortController();
     abortRef.current = ac;
+
+    const contextHint = targetMessage
+      ? `用户想回复这条消息：「${targetMessage}」\n\n`
+      : "";
 
     try {
       const text = await runAgent(
@@ -38,7 +43,7 @@ export default function DraftPanel({ roomId, llmConfig, onClose, onSend }: Props
           tools: [createGetRoomHistoryTool(roomId)],
           maxTurns: 3,
         },
-        instruction || "根据聊天历史，帮我起草一条回复",
+        `${contextHint}${instruction || "根据聊天历史，帮我起草一条回复"}`,
         (event) => {
           if (event.type === "thinking" && event.text) {
             // 实时显示思考内容作为草稿
@@ -57,7 +62,12 @@ export default function DraftPanel({ roomId, llmConfig, onClose, onSend }: Props
     } finally {
       abortRef.current = null;
     }
-  }, [roomId, llmConfig]);
+  }, [roomId, llmConfig, targetMessage]);
+
+  // 打开面板时自动触发生成
+  useEffect(() => {
+    generate("");
+  }, []);
 
   const handleRegenerate = useCallback(() => {
     generate(instruction);
@@ -130,7 +140,7 @@ export default function DraftPanel({ roomId, llmConfig, onClose, onSend }: Props
 
           {status === "idle" && !draft && (
             <div className="text-center text-gray-400 text-sm py-8">
-              点击消息旁的"AI 起草"按钮开始
+              点击"重新生成"开始
             </div>
           )}
         </div>

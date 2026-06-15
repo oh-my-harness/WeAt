@@ -82,13 +82,16 @@ export interface ChatMessage {
   body: string;
   ts: number;
   pending: boolean; // true = 尚未确认
+  failed?: boolean; // true = 发送失败
+  _tempId?: string; // 乐观更新时用于替换原 temp 消息
 }
 
 // ── HTTP Client ────────────────────────────────────────────────────────────
 
 async function apiFetch<T>(
   path: string,
-  options: RequestInit = {}
+  options: RequestInit = {},
+  signal?: AbortSignal,
 ): Promise<T> {
   const token = getToken();
   const separator = path.includes("?") ? "&" : "?";
@@ -96,6 +99,7 @@ async function apiFetch<T>(
   const url = `${API_BASE}${path}${tokenParam}`;
   const res = await fetch(url, {
     headers: { "Content-Type": "application/json", ...options.headers },
+    signal,
     ...options,
   });
   if (!res.ok) {
@@ -124,10 +128,13 @@ export async function fetchRooms(): Promise<Room[]> {
 
 export async function fetchMessages(
   roomId: string,
-  limit = 50
+  limit = 50,
+  signal?: AbortSignal,
 ): Promise<MatrixMessage[]> {
   const data = await apiFetch<{ messages: MatrixMessage[] }>(
-    `/rooms/${encodeURIComponent(roomId)}/messages?limit=${limit}`
+    `/rooms/${encodeURIComponent(roomId)}/messages?limit=${limit}`,
+    {},
+    signal,
   );
   return data.messages;
 }
@@ -148,7 +155,6 @@ export async function sendMessage(
 // ── WebSocket Hook ─────────────────────────────────────────────────────────
 
 const WS_RECONNECT_DELAY = 2000;
-const WS_MAX_RECONNECT = 30_000;
 
 let _wsInstance: WebSocket | null = null;
 let _wsReconnectTimer: ReturnType<typeof setTimeout> | null = null;

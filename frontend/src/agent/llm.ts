@@ -82,7 +82,6 @@ export async function streamLLM(
   signal?: AbortSignal,
   onDelta?: (text: string) => void,
   onToolCalls?: (calls: ToolCall[]) => void,
-  onThinking?: (text: string) => void,
 ): Promise<AssistantMessage> {
   const url = `${config.baseUrl.replace(/\/+$/, "")}/chat/completions`;
 
