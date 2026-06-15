@@ -25,6 +25,39 @@ export function setUserId(uid: string) {
 export function clearSession() {
   sessionStorage.removeItem(TOKEN_KEY);
   sessionStorage.removeItem(USER_KEY);
+  clearLLMConfig();
+}
+
+// ── LLM Config ─────────────────────────────────────────────────────────────
+
+const LLM_BASE_URL_KEY = "weat_llm_base_url";
+const LLM_MODEL_KEY = "weat_llm_model";
+const LLM_API_KEY_KEY = "weat_llm_api_key";
+
+export interface LLMConfig {
+  baseUrl: string;
+  model: string;
+  apiKey: string;
+}
+
+export function getLLMConfig(): LLMConfig | null {
+  const baseUrl = sessionStorage.getItem(LLM_BASE_URL_KEY);
+  const model = sessionStorage.getItem(LLM_MODEL_KEY);
+  const apiKey = sessionStorage.getItem(LLM_API_KEY_KEY);
+  if (!baseUrl || !model || !apiKey) return null;
+  return { baseUrl, model, apiKey };
+}
+
+export function setLLMConfig(config: LLMConfig) {
+  sessionStorage.setItem(LLM_BASE_URL_KEY, config.baseUrl);
+  sessionStorage.setItem(LLM_MODEL_KEY, config.model);
+  sessionStorage.setItem(LLM_API_KEY_KEY, config.apiKey);
+}
+
+export function clearLLMConfig() {
+  sessionStorage.removeItem(LLM_BASE_URL_KEY);
+  sessionStorage.removeItem(LLM_MODEL_KEY);
+  sessionStorage.removeItem(LLM_API_KEY_KEY);
 }
 
 // ── Types ──────────────────────────────────────────────────────────────────

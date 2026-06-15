@@ -6,7 +6,9 @@ import {
   fetchMessages,
   sendMessage,
   getUserId,
+  getLLMConfig,
 } from "./api";
+import DraftPanel from "./DraftPanel";
 
 interface Props {
   room: Room;
@@ -24,8 +26,10 @@ export default function ChatPage({
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [draftTarget, setDraftTarget] = useState<string | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const userId = getUserId();
+  const llmConfig = getLLMConfig();
 
   // 加载历史消息
   useEffect(() => {
@@ -40,13 +44,9 @@ export default function ChatPage({
           ts: m.origin_server_ts,
           pending: false,
         }));
-        // 去重：保留已有的（包括乐观更新的）
+        // 去重
         const existingIds = new Set(messages.map((m) => m.id));
         const newMsgs = msgs.filter((m) => !existingIds.has(m.id));
-        // 按时间排序后全部塞入
-        const merged = [...messages.filter((m) => m.room_id === room.room_id), ...newMsgs];
-        merged.sort((a, b) => a.ts - b.ts);
-        // 用 onAddMessage 批量添加新消息
         newMsgs.forEach((m) => onAddMessage(m));
         setLoading(false);
       })
@@ -64,9 +64,8 @@ export default function ChatPage({
   }, [messages.length]);
 
   // 发送消息（乐观更新）
-  const handleSend = useCallback(async () => {
-    const text = input.trim();
-    if (!text || sending) return;
+  const handleSend = useCallback(async (text: string) => {
+    if (!text.trim() || sending) return;
 
     const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const optimistic: ChatMessage = {
@@ -84,23 +83,38 @@ export default function ChatPage({
 
     try {
       const result = await sendMessage(room.room_id, text);
-      // 替换临时 ID
       onAddMessage({ ...optimistic, id: result.event_id, pending: false });
     } catch (e) {
       console.error("Send failed", e);
-      // 标记为发送失败
       onAddMessage({ ...optimistic, pending: false });
     } finally {
       setSending(false);
     }
-  }, [input, sending, room.room_id, userId, onAddMessage]);
+  }, [sending, room.room_id, userId, onAddMessage]);
+
+  const handleInputSend = useCallback(() => {
+    handleSend(input);
+  }, [handleSend, input]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      handleSend();
+      handleInputSend();
     }
   };
+
+  // AI 起草
+  const handleAIDraft = useCallback((msgBody: string) => {
+    if (!llmConfig) {
+      alert("请先在设置中配置 LLM API");
+      return;
+    }
+    setDraftTarget(msgBody);
+  }, [llmConfig]);
+
+  const handleDraftSend = useCallback((text: string) => {
+    handleSend(text);
+  }, [handleSend]);
 
   // 显示消息时间
   const formatTime = (ts: number) => {
@@ -109,7 +123,6 @@ export default function ChatPage({
     return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
   };
 
-  // 提取简单显示名
   const displayName = (sender: string) => {
     const parts = sender.split(":");
     if (parts.length >= 2) return parts[0].replace("@", "");
@@ -152,36 +165,47 @@ export default function ChatPage({
           return (
             <div
               key={msg.id}
-              className={`flex ${isMe ? "justify-end" : "justify-start"}`}
+              className={`group flex ${isMe ? "justify-end" : "justify-start"}`}
             >
-              <div
-                className={`max-w-[80%] sm:max-w-[70%] rounded-2xl px-3 py-2 ${
-                  isMe
-                    ? "bg-blue-600 text-white rounded-br-md"
-                    : "bg-white border rounded-bl-md"
-                } ${msg.pending ? "opacity-60" : ""}`}
-              >
-                {/* 发送者名字 */}
-                {!isMe && (
-                  <div className="text-xs text-gray-400 mb-0.5">
-                    {displayName(msg.sender)}
-                  </div>
-                )}
-
-                {/* Markdown 内容 */}
-                <div className={`text-sm prose-message ${isMe ? "text-white" : "text-gray-900"}`}>
-                  <Markdown>{msg.body}</Markdown>
-                </div>
-
-                {/* 时间戳 + 状态 */}
+              <div className="relative max-w-[80%] sm:max-w-[70%]">
                 <div
-                  className={`text-xs mt-1 flex items-center gap-1 ${
-                    isMe ? "text-blue-200" : "text-gray-400"
-                  }`}
+                  className={`rounded-2xl px-3 py-2 ${
+                    isMe
+                      ? "bg-blue-600 text-white rounded-br-md"
+                      : "bg-white border rounded-bl-md"
+                  } ${msg.pending ? "opacity-60" : ""}`}
                 >
-                  <span>{formatTime(msg.ts)}</span>
-                  {msg.pending && <span>发送中…</span>}
+                  {/* 对方名字 */}
+                  {!isMe && (
+                    <div className="text-xs text-gray-400 mb-0.5">
+                      {displayName(msg.sender)}
+                    </div>
+                  )}
+
+                  {/* Markdown */}
+                  <div className={`text-sm prose-message ${isMe ? "text-white" : "text-gray-900"}`}>
+                    <Markdown>{msg.body}</Markdown>
+                  </div>
+
+                  {/* 时间 */}
+                  <div className={`text-xs mt-1 flex items-center gap-1 ${isMe ? "text-blue-200" : "text-gray-400"}`}>
+                    <span>{formatTime(msg.ts)}</span>
+                    {msg.pending && <span>发送中…</span>}
+                  </div>
                 </div>
+
+                {/* AI 起草按钮（悬浮在对方消息上） */}
+                {!isMe && !msg.pending && (
+                  <button
+                    onClick={() => handleAIDraft(msg.body)}
+                    className="absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 bg-white border rounded-full p-1 shadow hover:bg-blue-50 transition-opacity"
+                    title="AI 起草回复"
+                  >
+                    <svg className="w-3.5 h-3.5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                  </button>
+                )}
               </div>
             </div>
           );
@@ -200,7 +224,7 @@ export default function ChatPage({
             className="flex-1 border rounded-xl px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-blue-400 text-sm max-h-32"
           />
           <button
-            onClick={handleSend}
+            onClick={handleInputSend}
             disabled={!input.trim() || sending}
             className="bg-blue-600 text-white rounded-xl px-4 py-2 hover:bg-blue-700 disabled:opacity-40 transition-colors shrink-0"
           >
@@ -210,6 +234,16 @@ export default function ChatPage({
           </button>
         </div>
       </div>
+
+      {/* Draft Panel */}
+      {draftTarget !== null && llmConfig && (
+        <DraftPanel
+          roomId={room.room_id}
+          llmConfig={llmConfig}
+          onClose={() => setDraftTarget(null)}
+          onSend={handleDraftSend}
+        />
+      )}
     </>
   );
 }

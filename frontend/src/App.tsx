@@ -1,17 +1,16 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import {
   getToken,
-  getUserId,
   clearSession,
   fetchRooms,
   ChatMessage,
-  MatrixMessage,
   Room,
   useWebSocket,
 } from "./api";
 import LoginPage from "./LoginPage";
 import RoomList from "./RoomList";
 import ChatPage from "./ChatPage";
+import Settings from "./Settings";
 
 type Page = "login" | "rooms" | "chat";
 
@@ -22,17 +21,15 @@ export default function App() {
   const [rooms, setRooms] = useState<Room[]>([]);
   const [activeRoom, setActiveRoom] = useState<Room | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const messagesRef = useRef(messages);
   messagesRef.current = messages;
 
-  // 登录成功回调
   const handleLogin = useCallback(() => {
     setPage("rooms");
     loadRooms();
   }, []);
 
-  // 登出
   const handleLogout = useCallback(() => {
     clearSession();
     setPage("login");
@@ -41,7 +38,6 @@ export default function App() {
     setMessages([]);
   }, []);
 
-  // 加载房间列表
   const loadRooms = useCallback(async () => {
     try {
       const r = await fetchRooms();
@@ -51,16 +47,13 @@ export default function App() {
     }
   }, []);
 
-  // 选择房间
   const handleSelectRoom = useCallback((room: Room) => {
     setActiveRoom(room);
     setPage("chat");
   }, []);
 
-  // WebSocket 事件处理
   const handleWSEvent = useCallback((data: any) => {
     if (data.type === "m.room.message" && data.room_id === activeRoom?.room_id) {
-      // 检查是否已存在（去重）
       const exists = messagesRef.current.some(
         (m) => m.id === data.event_id
       );
@@ -80,7 +73,6 @@ export default function App() {
 
   const ws = useWebSocket(handleWSEvent);
 
-  // 登录后连接 WS
   useEffect(() => {
     if (getToken()) {
       ws.connect();
@@ -89,12 +81,6 @@ export default function App() {
     return () => ws.disconnect();
   }, []);
 
-  // 当加载消息时，标记 loading 状态
-  const handleLoadingMessages = useCallback((loading: boolean) => {
-    setLoading(loading);
-  }, []);
-
-  // 切换房间时更新 WS handler 使用的房间 ID
   const handleAddMessage = useCallback((msg: ChatMessage) => {
     setMessages((prev) => {
       const idx = prev.findIndex((m) => m.id === msg.id);
@@ -127,6 +113,7 @@ export default function App() {
           onSelect={handleSelectRoom}
           onLogout={handleLogout}
           onRefresh={loadRooms}
+          onSettings={() => setShowSettings(true)}
         />
       </aside>
 
@@ -157,6 +144,9 @@ export default function App() {
           onRefresh={loadRooms}
         />
       </nav>
+
+      {/* 设置弹窗 */}
+      {showSettings && <Settings onClose={() => setShowSettings(false)} />}
     </div>
   );
 }
