@@ -146,7 +146,8 @@ async def get_user_info(token: str) -> dict:
     return await _get("/_matrix/client/v3/account/whoami", token)
 
 
-MATRIX_ADMIN_TOKEN = os.environ.get("MATRIX_ADMIN_TOKEN", "")
+ADMIN_TOKEN = os.environ.get("ADMIN_TOKEN", "")
+MATRIX_ADMIN_TOKEN = os.environ.get("MATRIX_ADMIN_TOKEN", "") or ADMIN_TOKEN
 
 
 async def get_registered_users() -> list[dict]:
