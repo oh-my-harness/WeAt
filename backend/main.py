@@ -15,6 +15,7 @@ WeAt Web 后端 — FastAPI 入口
 import asyncio
 import json
 import logging
+import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Query, HTTPException
