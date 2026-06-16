@@ -40,6 +40,7 @@ export default function ChatPage({
   } | null>(null);
   const [savingVault, setSavingVault] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
+  const summaryClosedRef = useRef(false);
   const messagesRef = useRef(messages);
   messagesRef.current = messages;
   const userId = getUserId();
@@ -129,6 +130,7 @@ export default function ChatPage({
       return;
     }
 
+    summaryClosedRef.current = false;
     setSummaryState({ text: "", busy: true });
 
     try {
@@ -176,9 +178,13 @@ export default function ChatPage({
         () => {}, // onEvent — 总结过程不实时展示思考
       );
 
-      setSummaryState({ text: result, busy: false });
+      if (!summaryClosedRef.current) {
+        setSummaryState({ text: result, busy: false });
+      }
     } catch (err: any) {
-      setSummaryState({ text: `Error: ${err.message}`, busy: false });
+      if (!summaryClosedRef.current) {
+        setSummaryState({ text: `Error: ${err.message}`, busy: false });
+      }
     }
   }, [llmConfig, room.room_id]);
 
@@ -358,7 +364,10 @@ export default function ChatPage({
       {summaryState && (
         <SummaryPanel
           summary={summaryState.text}
-          onClose={() => setSummaryState(null)}
+          onClose={() => {
+            summaryClosedRef.current = true;
+            setSummaryState(null);
+          }}
           onSaveToVault={handleSaveToVault}
           onSendToChat={handleSummarySend}
           savingVault={savingVault}
