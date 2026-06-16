@@ -12,6 +12,18 @@ if ! command -v docker &> /dev/null; then
     systemctl start docker
 fi
 
+# 检测 Docker Hub 是否可访问，不行则配国内镜像
+if ! docker pull --quiet nginx:alpine > /dev/null 2>&1; then
+    echo "Docker Hub 不可达，配置国内镜像加速..."
+    mkdir -p /etc/docker
+    cat > /etc/docker/daemon.json <<EOF
+{
+  "registry-mirrors": ["https://mirror.ccs.tencentyun.com"]
+}
+EOF
+    systemctl daemon-reload && systemctl restart docker
+fi
+
 echo "=== 安装 Node.js ==="
 if ! command -v node &> /dev/null; then
     curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
@@ -34,15 +46,12 @@ echo "SERVER_NAME=${DOMAIN}" > .env
 
 echo "=== 第一阶段：HTTP 模式启动 nginx（用于申请证书）==="
 mkdir -p /var/www/certbot
-cp nginx/nginx-init.conf nginx/nginx.conf.bak
-cp nginx/nginx-init.conf /tmp/nginx-init.conf
-
-# 用初始化配置临时启动 nginx
+docker rm -f weat_nginx_init 2>/dev/null || true
 docker run -d --name weat_nginx_init \
     -p 80:80 \
     -v "$(pwd)/frontend/dist:/usr/share/nginx/html:ro" \
     -v "/var/www/certbot:/var/www/certbot:ro" \
-    -v "/tmp/nginx-init.conf:/etc/nginx/conf.d/default.conf:ro" \
+    -v "$(pwd)/nginx/nginx-init.conf:/etc/nginx/conf.d/default.conf:ro" \
     nginx:alpine
 
 echo "=== 申请 SSL 证书 ==="
