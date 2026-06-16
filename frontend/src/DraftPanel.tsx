@@ -24,6 +24,7 @@ export default function DraftPanel({ roomId, llmConfig, targetMessage, onClose, 
     setStatus("generating");
     setDraft("");
 
+    abortRef.current?.abort();
     const ac = new AbortController();
     abortRef.current = ac;
 
@@ -83,14 +84,15 @@ ${searchVault ? "引用知识库中找到的相关信息（项目背景、历史
         setDraft(`Error: ${err.message}`);
         setStatus("editing");
       }
-    } finally {
-      abortRef.current = null;
     }
   }, [roomId, llmConfig, targetMessage, searchVault]);
 
   // 打开面板时自动触发生成
   useEffect(() => {
     generate("");
+    return () => {
+      abortRef.current?.abort();
+    };
   }, []);
 
   const handleRegenerate = useCallback(() => {
