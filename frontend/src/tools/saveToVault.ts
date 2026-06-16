@@ -51,7 +51,7 @@ export function createSaveToVaultTool(): Tool<{
 内容必须包含：
 1. YAML frontmatter:
    ---
-   date: 2026-06-16
+   date: ${new Date().toISOString().slice(0, 10)}
    type: project | person | concept | daily | note
    tags: [type-tag, ...]
    ai-first: true
@@ -83,7 +83,7 @@ export function createSaveToVaultTool(): Tool<{
             description: `完整的 Markdown 内容，必须遵循 AI-First 规范：
 
 ---
-date: 2026-06-16
+date: ${new Date().toISOString().slice(0, 10)}
 type: note
 tags: [chat-summary]
 ai-first: true

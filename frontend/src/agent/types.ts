@@ -64,7 +64,7 @@ export interface LLMConfig {
 
 export interface AgentConfig {
   systemPrompt: string;
-  tools: Tool[];
+  tools: Tool<any>[];
   llm: LLMConfig;
   maxTurns?: number;
 }

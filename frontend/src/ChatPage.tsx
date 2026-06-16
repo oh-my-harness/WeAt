@@ -12,7 +12,6 @@ import DraftPanel from "./DraftPanel";
 import SummaryPanel from "./SummaryPanel";
 import { runAgent } from "./agent";
 import { createGetRoomHistoryTool } from "./tools/getRoomHistory";
-import { createSaveToVaultTool } from "./tools/saveToVault";
 import { createSearchVaultTool } from "./tools/searchVault";
 
 interface Props {
@@ -62,7 +61,9 @@ export default function ChatPage({
           pending: false,
         }));
         const existingIds = new Set(messagesRef.current.map((m) => m.id));
-        const newMsgs = msgs.filter((m) => !existingIds.has(m.id));
+        const newMsgs = msgs
+          .filter((m) => !existingIds.has(m.id))
+          .sort((a, b) => a.ts - b.ts);
         newMsgs.forEach((m) => onAddMessage(m));
         setLoading(false);
       })
@@ -137,45 +138,47 @@ export default function ChatPage({
       const result = await runAgent(
         {
           llm: llmConfig,
-          systemPrompt: `你是一个团队聊天助手，帮助用户总结群聊对话并保存到本地知识库。
+          systemPrompt: `你是一个团队聊天助手，帮助用户总结群聊对话。
 
 ## 工具
 
 - get_room_history: 获取当前房间聊天历史（参数 limit 控制条数）
 - search_vault: 搜索本地知识库中的相关笔记（自动试同义词 / 按类型分组 / 支持子目录）
-- save_to_vault: 将内容保存到知识库（AI-First 格式 + frontmatter + For future Claude 段落 + 搜索查重）
 
-## 工作流程（严格按此顺序）
+## 工作流程
 
 1. **扫描对话**：get_room_history 获取最近 ${SUMMARY_MESSAGE_COUNT} 条消息
 2. **搜索知识库**：search_vault 查找相关背景
    - 先 search_vault("") 了解目录结构
    - 提取消息中的核心实体/概念，逐个搜索
-   - 定向搜索 wiki/projects/、wiki/entities/ 等可能相关目录
-   - 搜索不到时工具会自动试同义词
-3. **生成摘要**：要点列表 + 待办事项 + 关键决策 + 涉及的人和项目
-4. **搜索查重**：search_vault 同名文件，决定新建还是追加
-5. **保存到 vault**：save_to_vault 按 AI-First 规范保存
-   - YAML frontmatter（date + type + tags + ai-first: true）
-   - ## For future Claude 段落（2-3 句摘要）
-   - 正文用 [[Wikilink]] 链接涉及的人、项目、概念
-   - 总结摘要放根目录 "YYYY-MM-DD-房间名-聊天总结"
-   - 如果涉及已有项目，也更新对应 project note
-6. **传播**：如果 vault 有 wiki/daily/、wiki/projects/ 等目录，在相关笔记中添加 [[链接]]
+3. **输出摘要**：直接返回 Markdown 正文，不要保存，不要输出 YAML frontmatter
 
-## 原则
-- Search before write — 绝不盲目覆盖已有内容
-- Never create orphaned notes — 每条笔记都应有 [[链接]] 引用
-- AI-First 格式 — 这是给未来 AI 读的，不是给人读的`,
+## 输出格式
+
+## For future Claude
+<2-3 句话：这段对话的核心内容、关键决策、后续行动>
+
+## 要点
+- ...
+
+## 待办
+- [ ] ...
+
+## 关键决策
+- ...
+
+## 涉及人员与项目
+- ...
+
+用 [[Wikilink]] 链接知识库中已有的人、项目、概念。只返回上述 Markdown 正文，不调用 save_to_vault。`,
           tools: [
             createGetRoomHistoryTool(room.room_id),
             createSearchVaultTool(),
-            createSaveToVaultTool(),
           ],
-          maxTurns: 6,
+          maxTurns: 8,
         },
-        `请总结本房间最近 ${SUMMARY_MESSAGE_COUNT} 条聊天消息，并搜索知识库找相关历史。生成摘要后保存到 vault。`,
-        () => {}, // onEvent — 总结过程不实时展示思考
+        `请总结本房间最近 ${SUMMARY_MESSAGE_COUNT} 条聊天消息，并搜索知识库补充相关背景。只返回摘要文本，不要保存。`,
+        () => {},
       );
 
       if (!summaryClosedRef.current) {
@@ -193,8 +196,12 @@ export default function ChatPage({
     setSavingVault(true);
     try {
       const { writeToVault } = await import("./vault");
-      const dateStr = new Date().toISOString().slice(0, 10);
-      await writeToVault(`${dateStr}-${room.name || room.room_id.slice(0, 8)}-总结`, content);
+      const now = new Date();
+      const dateStr = now.toISOString().slice(0, 10);
+      const pad = (n: number) => n.toString().padStart(2, "0");
+      const timeStr = `${pad(now.getHours())}${pad(now.getMinutes())}`;
+      const frontmatter = `---\ndate: ${dateStr}\ntype: chat-summary\ntags: []\nai-first: true\n---\n\n`;
+      await writeToVault(`${dateStr}-${timeStr}-${room.name || room.room_id.slice(0, 8)}-总结`, frontmatter + content);
       alert("已保存到知识库");
     } catch (err: any) {
       alert(`保存失败: ${err.message}`);
