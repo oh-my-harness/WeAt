@@ -38,9 +38,11 @@ export async function runAgent(
 
   onEvent({ type: "agent_start" });
   onEvent({ type: "message", message: messages[0] });
+  console.log(`[Agent] start maxTurns=${maxTurns}`);
 
   for (let turn = 0; turn < maxTurns; turn++) {
     // Step 1: Call LLM
+    console.log(`[Agent] turn ${turn + 1}/${maxTurns}`);
     onEvent({ type: "thinking", text: "思考中…" });
 
     let response: AssistantMessage;
@@ -55,6 +57,7 @@ export async function runAgent(
         (text) => onEvent({ type: "thinking", text }),
       );
     } catch (err: any) {
+      if (err.name === "AbortError") throw err;
       onEvent({ type: "error", message: err.message || "LLM call failed" });
       return `Error: ${err.message}`;
     }
@@ -94,6 +97,7 @@ export async function runAgent(
       }
 
       onEvent({ type: "tool_start", toolName: tc.function.name });
+      console.log(`[Agent] tool_start: ${tc.function.name}`, args);
 
       let result: string;
       try {
@@ -103,6 +107,7 @@ export async function runAgent(
       }
 
       onEvent({ type: "tool_end", toolName: tc.function.name, result });
+      console.log(`[Agent] tool_end: ${tc.function.name} result=${result.slice(0, 80)}${result.length > 80 ? "…" : ""}`);
 
       messages.push({
         role: "tool",
@@ -114,6 +119,7 @@ export async function runAgent(
 
   // 超过 maxTurns，返回最后一次 assistant 回复
   const last = [...messages].reverse().find((m) => m.role === "assistant");
+  console.log(`[Agent] exceeded maxTurns=${maxTurns}`);
   onEvent({ type: "agent_end" });
   return (last as AssistantMessage)?.content || "Agent exceeded max turns";
 }

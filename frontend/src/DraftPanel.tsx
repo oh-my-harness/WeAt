@@ -65,7 +65,7 @@ ${searchVault ? "引用知识库中找到的相关信息（项目背景、历史
 回复简洁自然，符合对话上下文。
 只用中文回复，除非原文是英文。`,
           tools,
-          maxTurns: searchVault ? 4 : 3,
+          maxTurns: searchVault ? 10 : 6,
         },
         `${contextHint}${userInstruction || "根据聊天历史，帮我起草一条回复"}`,
         (event) => {
@@ -87,9 +87,8 @@ ${searchVault ? "引用知识库中找到的相关信息（项目背景、历史
     }
   }, [roomId, llmConfig, targetMessage, searchVault]);
 
-  // 打开面板时自动触发生成
+  // 打开面板时不自动触发生成，由用户点击按钮决定
   useEffect(() => {
-    generate("");
     return () => {
       abortRef.current?.abort();
     };

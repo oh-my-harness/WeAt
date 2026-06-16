@@ -84,6 +84,7 @@ export async function streamLLM(
   onToolCalls?: (calls: ToolCall[]) => void,
 ): Promise<AssistantMessage> {
   const url = `${config.baseUrl.replace(/\/+$/, "")}/chat/completions`;
+  console.log(`[LLM] → ${config.model} | msgs=${messages.length} tools=${tools.length}`);
 
   const body: ChatCompletionRequest = {
     model: config.model,
@@ -174,7 +175,18 @@ export async function streamLLM(
   };
 
   while (true) {
-    const { done, value } = await reader.read();
+    let done: boolean;
+    let value: Uint8Array | undefined;
+    try {
+      ({ done, value } = await reader.read());
+    } catch (err: any) {
+      // AbortError from signal or BodyStreamBuffer aborted
+      if (signal?.aborted || err.name === "AbortError" || err.message?.includes("aborted")) {
+        const abortErr = new DOMException("Aborted", "AbortError");
+        throw abortErr;
+      }
+      throw err;
+    }
     if (done) break;
 
     buffer += decoder.decode(value, { stream: true });
@@ -193,6 +205,7 @@ export async function streamLLM(
 
   const finishReason = determineStopReason(toolCallsAccum);
   const finalCalls = toolCallsAccum.length > 0 ? toolCallsAccum : undefined;
+  console.log(`[LLM] ← stopReason=${finishReason} content=${content.length}chars toolCalls=${finalCalls?.length ?? 0}`);
 
   if (finalCalls) {
     onToolCalls?.(finalCalls);
