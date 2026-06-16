@@ -131,7 +131,9 @@ export default function App() {
   }, []);
 
   const handleCreateRoom = useCallback(async (name: string, pub: boolean) => {
-    await createRoom(name, pub);
+    const roomId = await createRoom(name, pub);
+    // 自动加入新创建的房间
+    await joinRoom(roomId);
     await loadRooms();
   }, [loadRooms]);
 
