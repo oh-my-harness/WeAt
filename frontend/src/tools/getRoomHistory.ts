@@ -1,4 +1,4 @@
-import type { Tool } from "../agent/types";
+import type { Tool, ToolExecuteContext } from "../agent/types";
 import { fetchMessages } from "../api";
 
 /** 获取房间历史消息的工具 */
@@ -18,10 +18,10 @@ export function createGetRoomHistoryTool(roomId: string): Tool<{ limit?: number 
         required: [],
       },
     },
-    async execute(params) {
+    async execute(params, context?: ToolExecuteContext) {
       const limit = params.limit ?? 30;
       try {
-        const msgs = await fetchMessages(roomId, limit);
+        const msgs = await fetchMessages(roomId, limit, context?.signal);
         // 格式化为可读文本
         const lines = msgs
           .reverse() // messages 返回从旧到新，反转成倒序
@@ -33,6 +33,7 @@ export function createGetRoomHistoryTool(roomId: string): Tool<{ limit?: number 
           .join("\n");
         return lines || "（暂无消息）";
       } catch (err: any) {
+        if (err.name === "AbortError") throw err;
         return `Error fetching history: ${err.message}`;
       }
     },

@@ -76,7 +76,7 @@ export function createSearchVaultTool(): Tool<{ keyword: string; subDir?: string
         required: ["keyword"],
       },
     },
-    async execute(params) {
+    async execute(params, context?: ToolExecuteContext) {
       const ok = await hasVault();
       if (!ok) return "（知识库未连接，用户尚未选择本地目录）";
 
@@ -93,7 +93,10 @@ export function createSearchVaultTool(): Tool<{ keyword: string; subDir?: string
       const keywords = findSynonyms(params.keyword);
       let allResults: Awaited<ReturnType<typeof searchInVault>> = [];
 
+      if (context?.signal?.aborted) throw new DOMException("Aborted", "AbortError");
+
       for (const kw of keywords) {
+        if (context?.signal?.aborted) throw new DOMException("Aborted", "AbortError");
         const r = await searchInVault(kw, params.subDir);
         allResults.push(...r);
       }

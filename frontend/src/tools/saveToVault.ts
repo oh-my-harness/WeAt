@@ -1,4 +1,4 @@
-import type { Tool } from "../agent/types";
+import type { Tool, ToolExecuteContext } from "../agent/types";
 import { writeToVault, hasVault, readFromVault, listVaultFiles } from "../vault";
 
 /**
@@ -104,7 +104,7 @@ ai-first: true
         required: ["filePath", "content"],
       },
     },
-    async execute(params) {
+    async execute(params, context?: ToolExecuteContext) {
       const ok = await hasVault();
       if (!ok) return "错误：未选择知识库目录。请在设置中选择本地目录。";
 
