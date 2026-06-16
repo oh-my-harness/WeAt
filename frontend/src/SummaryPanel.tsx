@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 
 interface Props {
   summary: string;
@@ -16,6 +16,10 @@ export default function SummaryPanel({
   savingVault,
 }: Props) {
   const [text, setText] = useState(summary);
+
+  useEffect(() => {
+    setText(summary);
+  }, [summary]);
 
   const handleSaveVault = useCallback(() => {
     onSaveToVault(text);
