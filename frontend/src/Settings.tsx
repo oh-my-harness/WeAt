@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { getLLMConfig, setLLMConfig, clearLLMConfig } from "./api";
 import { pickVault, hasVault, listVaultFiles } from "./vault";
 
@@ -15,12 +15,12 @@ export default function Settings({ onClose }: Props) {
   const [vaultFiles, setVaultFiles] = useState<string[]>([]);
 
   // 初始化检查 vault 状态
-  useState(() => {
+  useEffect(() => {
     hasVault().then((ok) => {
       setVaultReady(ok);
       if (ok) listVaultFiles().then(setVaultFiles);
     });
-  });
+  }, []);
 
   const handlePickVault = useCallback(async () => {
     const ok = await pickVault();
