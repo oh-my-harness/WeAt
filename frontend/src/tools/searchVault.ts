@@ -1,5 +1,5 @@
 import type { Tool } from "../agent/types";
-import { searchInVault, hasVault, listVaultTree, readFromVault } from "../vault";
+import { searchInVault, hasVault, listVaultTree } from "../vault";
 
 /**
  * 严格遵循 obsidian-find 命令的搜索模式：
@@ -31,20 +31,6 @@ function findSynonyms(keyword: string): string[] {
   return [...seen];
 }
 
-/** 从 frontmatter 中提取 type 标签 */
-function detectType(text: string): string {
-  const m = text.match(/^---\n([\s\S]*?)\n---/);
-  if (!m) return "note";
-  const fm = m[1];
-  const typeMatch = fm.match(/^type:\s*(\S+)/m);
-  if (typeMatch) return typeMatch[1];
-  const tagsMatch = fm.match(/^tags:\s*\n([\s\S]*?)(?:\n\S|\n$)/m);
-  if (tagsMatch) {
-    const tagLine = tagsMatch[1].match(/-\s*(\S+)/);
-    if (tagLine) return tagLine[1];
-  }
-  return "note";
-}
 
 export function createSearchVaultTool(): Tool<{ keyword: string; subDir?: string }> {
   return {
@@ -123,7 +109,7 @@ export function createSearchVaultTool(): Tool<{ keyword: string; subDir?: string
       // ── 按类型分组展示 ─────────────────────────────────────────
       const byType = new Map<string, typeof allResults>();
       for (const r of allResults) {
-        const type = detectType(r.snippet);
+        const type = r.noteType || "note";
         if (!byType.has(type)) byType.set(type, []);
         byType.get(type)!.push(r);
       }
