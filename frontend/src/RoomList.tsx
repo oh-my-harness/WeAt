@@ -7,6 +7,7 @@ interface Props {
   onLogout: () => void;
   onRefresh: () => void;
   onSettings?: () => void;
+  onAdmin?: () => void;
   compact?: boolean;
 }
 
@@ -17,6 +18,7 @@ export default function RoomList({
   onLogout,
   onRefresh,
   onSettings,
+  onAdmin,
   compact,
 }: Props) {
   if (compact) {
@@ -51,6 +53,15 @@ export default function RoomList({
       <div className="flex items-center justify-between px-4 py-3 border-b">
         <h2 className="font-semibold text-gray-800">房间</h2>
         <div className="flex gap-1">
+          <button
+            onClick={onAdmin}
+            className="text-gray-400 hover:text-green-600 p-1 rounded transition-colors"
+            title="用户管理"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+            </svg>
+          </button>
           <button
             onClick={onSettings}
             className="text-gray-400 hover:text-blue-600 p-1 rounded transition-colors"

@@ -42,7 +42,12 @@ npm run build
 cd ..
 
 echo "=== 生成 .env ==="
+read -sp "设置管理员令牌（留空则跳过）: " ADMIN_TOKEN_VAL
+echo ""
 echo "SERVER_NAME=${DOMAIN}" > .env
+if [ -n "$ADMIN_TOKEN_VAL" ]; then
+  echo "ADMIN_TOKEN=${ADMIN_TOKEN_VAL}" >> .env
+fi
 
 echo "=== 第一阶段：HTTP 模式启动 nginx（用于申请证书）==="
 mkdir -p /var/www/certbot

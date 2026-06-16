@@ -11,6 +11,7 @@ import LoginPage from "./LoginPage";
 import RoomList from "./RoomList";
 import ChatPage from "./ChatPage";
 import Settings from "./Settings";
+import AdminPanel from "./AdminPanel";
 
 type Page = "login" | "rooms" | "chat";
 
@@ -22,6 +23,7 @@ export default function App() {
   const [activeRoom, setActiveRoom] = useState<Room | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [showSettings, setShowSettings] = useState(false);
+  const [showAdmin, setShowAdmin] = useState(false);
   const messagesRef = useRef(messages);
   messagesRef.current = messages;
 
@@ -122,6 +124,7 @@ export default function App() {
           onLogout={handleLogout}
           onRefresh={loadRooms}
           onSettings={() => setShowSettings(true)}
+          onAdmin={() => setShowAdmin(true)}
         />
       </aside>
 
@@ -155,6 +158,9 @@ export default function App() {
 
       {/* 设置弹窗 */}
       {showSettings && <Settings onClose={() => setShowSettings(false)} />}
+
+      {/* 管理弹窗 */}
+      {showAdmin && <AdminPanel onClose={() => setShowAdmin(false)} />}
     </div>
   );
 }

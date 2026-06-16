@@ -144,3 +144,22 @@ async def register_user(username: str, password: str) -> dict:
 async def get_user_info(token: str) -> dict:
     """获取当前用户信息。"""
     return await _get("/_matrix/client/v3/account/whoami", token)
+
+
+async def get_registered_users() -> list[dict]:
+    """获取已注册用户列表。调用 Tuwunel admin API。"""
+    try:
+        data = await _get("/_synapse/admin/v2/users")
+        return data.get("users", [])
+    except Exception:
+        # Tuwunel 可能不兼容 Synapse admin API，返回空列表
+        return []
+
+
+async def reset_password(username: str, new_password: str) -> dict:
+    """重置用户密码。使用 Tuwunel admin API。"""
+    localpart = username.split(":")[0].replace("@", "")
+    return await _put(
+        f"/_synapse/admin/v1/reset_password/@{localpart}",
+        json={"new_password": new_password},
+    )

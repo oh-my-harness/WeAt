@@ -152,6 +152,17 @@ export async function sendMessage(
   );
 }
 
+// ── Admin API ──────────────────────────────────────────────────────────────
+
+/** 管理员：创建用户 */
+export async function adminCreateUser(adminToken: string, username: string, password: string): Promise<string> {
+  const data = await apiFetch<{ user_id: string }>(`/admin/users?admin_token=${encodeURIComponent(adminToken)}`, {
+    method: "POST",
+    body: JSON.stringify({ username, password }),
+  });
+  return data.user_id;
+}
+
 // ── WebSocket Hook ─────────────────────────────────────────────────────────
 
 const WS_RECONNECT_DELAY = 2000;

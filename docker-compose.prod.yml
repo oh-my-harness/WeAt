@@ -22,6 +22,7 @@ services:
     restart: unless-stopped
     environment:
       MATRIX_BASE: http://matrix:8008
+      ADMIN_TOKEN: ${ADMIN_TOKEN}
     depends_on:
       - matrix
 

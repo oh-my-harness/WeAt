@@ -129,6 +129,65 @@ async def whoami(token: str = Query(...)):
         raise HTTPException(status_code=401, detail="Invalid token")
 
 
+# ── Admin API ──────────────────────────────────────────────────────────────
+
+ADMIN_TOKEN = os.environ.get("ADMIN_TOKEN", "")
+
+
+async def verify_admin(token: str = Query(...)):
+    """验证管理员 token。"""
+    if not ADMIN_TOKEN:
+        raise HTTPException(status_code=503, detail="管理员模式未启用（未设置 ADMIN_TOKEN）")
+    if token != ADMIN_TOKEN:
+        raise HTTPException(status_code=403, detail="无效的管理员令牌")
+
+
+@app.get("/api/admin/users")
+async def admin_list_users(admin_token: str = Query(...)):
+    """列出所有用户（通过 Tuwunel 注册用户列表）。"""
+    await verify_admin(token=admin_token)
+    try:
+        users = await matrix_api.get_registered_users()
+        return {"users": users}
+    except Exception as e:
+        logger.warning("Failed to list users: %s", e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+class CreateUserRequest(BaseModel):
+    username: str
+    password: str
+
+
+@app.post("/api/admin/users")
+async def admin_create_user(req: CreateUserRequest, admin_token: str = Query(...)):
+    """管理员创建用户。"""
+    await verify_admin(token=admin_token)
+    try:
+        result = await matrix_api.register_user(req.username, req.password)
+        return {"user_id": result.get("user_id", req.username)}
+    except Exception as e:
+        logger.warning("Failed to create user: %s", e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+class ResetPasswordRequest(BaseModel):
+    username: str
+    new_password: str
+
+
+@app.post("/api/admin/reset-password")
+async def admin_reset_password(req: ResetPasswordRequest, admin_token: str = Query(...)):
+    """重置用户密码。"""
+    await verify_admin(token=admin_token)
+    try:
+        result = await matrix_api.reset_password(req.username, req.new_password)
+        return {"ok": True}
+    except Exception as e:
+        logger.warning("Failed to reset password: %s", e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # ── WebSocket ───────────────────────────────────────────────────────────────
 
 
