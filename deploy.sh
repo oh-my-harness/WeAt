@@ -44,11 +44,58 @@ cd ..
 echo "=== 生成 .env ==="
 read -sp "设置管理员令牌（留空则跳过）: " ADMIN_TOKEN_VAL
 echo ""
+read -sp "设置 Matrix 管理员用户名（一般为 admin，留空则跳过）: " MATRIX_ADMIN_USER_VAL
+echo ""
+read -sp "设置 Matrix 管理员密码: " MATRIX_ADMIN_PASSWORD_VAL
+echo ""
+
 echo "SERVER_NAME=${DOMAIN}" > .env
 if [ -n "$ADMIN_TOKEN_VAL" ]; then
   echo "ADMIN_TOKEN=${ADMIN_TOKEN_VAL}" >> .env
 fi
+if [ -n "$MATRIX_ADMIN_USER_VAL" ]; then
+  echo "MATRIX_ADMIN_USER=${MATRIX_ADMIN_USER_VAL}" >> .env
+fi
+if [ -n "$MATRIX_ADMIN_PASSWORD_VAL" ]; then
+  echo "MATRIX_ADMIN_PASSWORD=${MATRIX_ADMIN_PASSWORD_VAL}" >> .env
+fi
 
+echo ""
+echo "=== 数据初始化 ==="
+read -p "是否清除已有数据（用户、聊天记录）并重新开始？(y/n): " RESET_DATA
+if [ "$RESET_DATA" = "y" ] || [ "$RESET_DATA" = "Y" ]; then
+    echo "停止服务并清除数据..."
+    docker compose -f docker-compose.prod.yml down -v 2>/dev/null || true
+    rm -f backend/users.json
+    echo "数据已清除"
+else
+    # 如果用户已启用，但 admin 用户名变了，更新 users.json
+    if [ -n "$MATRIX_ADMIN_USER_VAL" ]; then
+        OLD_USER=$(jq -r '.[0].name' backend/users.json 2>/dev/null | cut -d@ -f2 | cut -d: -f1 || true)
+        if [ -n "$OLD_USER" ] && [ "$OLD_USER" != "$MATRIX_ADMIN_USER_VAL" ]; then
+            echo "检测到管理员用户名变更（$OLD_USER → $MATRIX_ADMIN_USER_VAL），更新 users.json..."
+            python3 -c "
+import json
+try:
+    with open('backend/users.json') as f:
+        users = json.load(f)
+    domain = '${DOMAIN}'
+    old = '@${OLD_USER}:localhost'
+    new = '@${MATRIX_ADMIN_USER_VAL}:${DOMAIN}'
+    for u in users:
+        if u.get('name') == old:
+            u['name'] = new
+    with open('backend/users.json', 'w') as f:
+        json.dump(users, f, indent=2)
+    print('已更新')
+except FileNotFoundError:
+    pass
+"
+        fi
+    fi
+fi
+
+echo ""
 echo "=== 第一阶段：HTTP 模式启动 nginx（用于申请证书）==="
 mkdir -p /var/www/certbot
 docker rm -f weat_nginx_init 2>/dev/null || true
