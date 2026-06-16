@@ -189,10 +189,14 @@ async def reset_password(username: str, new_password: str) -> dict:
 
 async def create_room(token: str, name: str, public: bool = False) -> dict:
     """创建新房间。返回 {room_id}。"""
+    import re
+    # room_alias_name 只支持 [a-z0-9_-]，中文等字符需要转换
+    alias = re.sub(r"[^a-zA-Z0-9_-]", "_", name).strip("_").lower() or "room"
     body: dict = {
         "name": name,
         "visibility": "public" if public else "private",
         "preset": "public_chat" if public else "private_chat",
+        "room_alias_name": alias,
     }
     return await _post("/_matrix/client/v3/createRoom", token, json=body)
 
