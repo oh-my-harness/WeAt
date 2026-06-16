@@ -150,13 +150,12 @@ async def get_user_info(token: str) -> dict:
 ADMIN_TOKEN = os.environ.get("ADMIN_TOKEN", "")
 MATRIX_ADMIN_TOKEN = os.environ.get("MATRIX_ADMIN_TOKEN", "") or ADMIN_TOKEN
 
-# ── 本地用户记录（Tuwunel 没有 admin API，用本地 JSON 文件维护）────
+# ── 本地用户记录 ─────────────────────────────────────────────────────
 
 USERS_FILE = os.environ.get("USERS_FILE", "/app/backend/users.json")
 
 
 def _load_users() -> list[dict]:
-    """从本地 JSON 文件加载用户列表。"""
     try:
         with open(USERS_FILE) as f:
             return json.load(f)
@@ -165,7 +164,6 @@ def _load_users() -> list[dict]:
 
 
 def _save_users(users: list[dict]):
-    """写入本地 JSON 文件。"""
     d = os.path.dirname(USERS_FILE)
     if d:
         os.makedirs(d, exist_ok=True)
@@ -174,7 +172,7 @@ def _save_users(users: list[dict]):
 
 
 def record_user(username: str):
-    """记录新注册的用户。"""
+    """记录新注册的用户到本地文件。"""
     users = _load_users()
     existing = {u.get("name", "") for u in users}
     domain = os.environ.get("MATRIX_DOMAIN") or os.environ.get("SERVER_NAME", "localhost")
@@ -198,10 +196,42 @@ async def get_registered_users() -> list[dict]:
     return _load_users()
 
 
+# ── Tuwunel Admin API（基于 room-based admin 机制） ──────────────────
+
+MATRIX_ADMIN_USER = os.environ.get("MATRIX_ADMIN_USER", "")
+MATRIX_ADMIN_PASSWORD = os.environ.get("MATRIX_ADMIN_PASSWORD", "")
+_tuwunel_admin_token: str | None = None
+
+
+async def _get_admin_token() -> str:
+    """获取 Tuwunel admin token。用 MATRIX_ADMIN_USER/PASSWORD 登录。"""
+    global _tuwunel_admin_token
+    if _tuwunel_admin_token:
+        return _tuwunel_admin_token
+    if not MATRIX_ADMIN_USER or not MATRIX_ADMIN_PASSWORD:
+        raise RuntimeError("请设置 MATRIX_ADMIN_USER 和 MATRIX_ADMIN_PASSWORD 环境变量")
+    result = await login(MATRIX_ADMIN_USER, MATRIX_ADMIN_PASSWORD)
+    _tuwunel_admin_token = result["access_token"]
+    return _tuwunel_admin_token
+
+
 async def deactivate_user(user_id: str) -> dict:
-    """停用（注销）用户。标记本地记录。"""
+    """停用用户（通过 Tuwunel suspend API）。"""
+    # 先标记本地记录
     remove_user_record(user_id)
-    return {"ok": True}
+    # 再调用 Tuwunel suspend API
+    try:
+        token = await _get_admin_token()
+        localpart = user_id.split(":")[0]
+        domain = user_id.split(":", 1)[1] if ":" in user_id else "localhost"
+        return await _put(
+            f"/_matrix/client/v1/admin/suspend/{localpart}:{domain}",
+            token=token,
+            json={"suspended": True},
+        )
+    except Exception as e:
+        logger.warning("Tuwunel suspend API failed (local record updated anyway): %s", e)
+        return {"ok": True, "note": "local only"}
 
 
 async def reset_password(username: str, new_password: str) -> dict:
