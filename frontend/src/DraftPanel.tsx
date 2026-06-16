@@ -1,7 +1,9 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import type { LLMConfig } from "./agent/types";
+import type { Tool } from "./agent/types";
 import { runAgent } from "./agent";
 import { createGetRoomHistoryTool } from "./tools/getRoomHistory";
+import { createSearchVaultTool } from "./tools/searchVault";
 
 interface Props {
   roomId: string;
@@ -15,9 +17,10 @@ export default function DraftPanel({ roomId, llmConfig, targetMessage, onClose, 
   const [draft, setDraft] = useState("");
   const [status, setStatus] = useState<"idle" | "generating" | "editing">("idle");
   const [instruction, setInstruction] = useState("");
+  const [searchVault, setSearchVault] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
-  const generate = useCallback(async (instruction: string) => {
+  const generate = useCallback(async (userInstruction: string) => {
     setStatus("generating");
     setDraft("");
 
@@ -28,25 +31,46 @@ export default function DraftPanel({ roomId, llmConfig, targetMessage, onClose, 
       ? `用户想回复这条消息：「${targetMessage}」\n\n`
       : "";
 
+    // 按开关决定是否注入 searchVault
+    const tools: Tool[] = [createGetRoomHistoryTool(roomId)];
+    let toolListDesc = "- get_room_history: 获取当前房间聊天历史";
+    if (searchVault) {
+      tools.push(createSearchVaultTool());
+      toolListDesc += "\n- search_vault: 搜索本地知识库中的相关笔记（如果有的话）";
+    }
+
     try {
       const text = await runAgent(
         {
           llm: llmConfig,
           systemPrompt: `你是一个团队聊天助手，帮助用户起草回复。
 
-工具:
-- get_room_history: 获取当前房间聊天历史
+## 工具
 
-根据聊天历史和用户要求，起草一条合适的回复。
-回复要简洁自然，符合对话上下文。
+${toolListDesc}
+
+## 工作流程
+
+1. 用 get_room_history 获取当前房间最近聊天记录${searchVault ? `\n2. 搜索知识库中与上下文相关的信息：
+   - search_vault("") 了解 vault 目录结构
+   - 从消息中提取核心概念，逐个搜索
+   - 定向搜索 wiki/projects/、wiki/entities/、wiki/concepts/ 等可能相关目录
+   - search_vault 工具会自动试同义词
+3. 综合聊天历史和 vault 信息，起草回复` : ""}
+
+## 回复要求
+
+${searchVault ? "引用知识库中找到的相关信息（项目背景、历史决策、人物信息等），只引用确实相关的。引用格式：📚 [[文件路径]]\n" : ""}
+回复简洁自然，符合对话上下文。
 只用中文回复，除非原文是英文。`,
-          tools: [createGetRoomHistoryTool(roomId)],
-          maxTurns: 3,
+          tools,
+          maxTurns: searchVault ? 4 : 3,
         },
-        `${contextHint}${instruction || "根据聊天历史，帮我起草一条回复"}`,
+        `${contextHint}${userInstruction || "根据聊天历史，帮我起草一条回复"}`,
         (event) => {
+          // 实时显示思考内容
           if (event.type === "thinking" && event.text) {
-            // 实时显示思考内容作为草稿
+            // 不自动覆盖 draft
           }
         },
         ac.signal,
@@ -62,7 +86,7 @@ export default function DraftPanel({ roomId, llmConfig, targetMessage, onClose, 
     } finally {
       abortRef.current = null;
     }
-  }, [roomId, llmConfig, targetMessage]);
+  }, [roomId, llmConfig, targetMessage, searchVault]);
 
   // 打开面板时自动触发生成
   useEffect(() => {
@@ -99,8 +123,9 @@ export default function DraftPanel({ roomId, llmConfig, targetMessage, onClose, 
           </button>
         </div>
 
-        {/* 修改指令 */}
-        <div className="px-4 py-2 border-b">
+        {/* 指令 + 开关 */}
+        <div className="px-4 py-2 border-b space-y-2">
+          {/* 修改指令 */}
           <div className="flex gap-2">
             <input
               className="flex-1 border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
@@ -119,6 +144,18 @@ export default function DraftPanel({ roomId, llmConfig, targetMessage, onClose, 
               修改
             </button>
           </div>
+
+          {/* 搜索知识库开关 */}
+          <label className="flex items-center gap-2 cursor-pointer text-xs text-gray-500">
+            <input
+              type="checkbox"
+              checked={searchVault}
+              onChange={(e) => setSearchVault(e.target.checked)}
+              className="w-3.5 h-3.5 rounded border-gray-300 text-blue-600 focus:ring-blue-400"
+            />
+            搜索知识库
+            <span className="text-gray-400">（较慢，消耗更多 token）</span>
+          </label>
         </div>
 
         {/* 草稿内容 */}
