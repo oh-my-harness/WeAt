@@ -69,7 +69,7 @@ let memoryHandle: FileSystemDirectoryHandle | null = null;
 /** 让用户选择一个本地目录作为 vault，返回是否成功 */
 export async function pickVault(): Promise<boolean> {
   try {
-    const handle = await window.showDirectoryPicker({ mode: "readwrite" });
+    const handle = await (window as any).showDirectoryPicker({ mode: "readwrite" });
     await storeHandle(handle);
     return true;
   } catch (err: any) {

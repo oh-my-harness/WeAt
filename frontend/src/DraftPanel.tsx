@@ -33,7 +33,7 @@ export default function DraftPanel({ roomId, llmConfig, targetMessage, onClose, 
       : "";
 
     // 按开关决定是否注入 searchVault
-    const tools: Tool[] = [createGetRoomHistoryTool(roomId)];
+    const tools: Tool<any>[] = [createGetRoomHistoryTool(roomId)];
     let toolListDesc = "- get_room_history: 获取当前房间聊天历史";
     if (searchVault) {
       tools.push(createSearchVaultTool());
