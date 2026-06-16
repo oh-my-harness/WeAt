@@ -199,5 +199,7 @@ async def create_room(token: str, name: str, public: bool = False) -> dict:
 
 async def join_room(token: str, room_id_or_alias: str) -> dict:
     """加入房间（通过 room_id 或 room alias）。返回 {room_id}。"""
-    encoded = room_id_or_alias.replace("#", "%23").replace(":", "%3A")
+    from urllib.parse import quote
+    # Matrix room ID/alias 包含 ! # : 等特殊字符，必须 URL 编码
+    encoded = quote(room_id_or_alias, safe="")
     return await _post(f"/_matrix/client/v3/join/{encoded}", token)
