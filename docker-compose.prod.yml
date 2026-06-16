@@ -1,6 +1,6 @@
 services:
   matrix:
-    image: ghcr.io/matrix-construct/tuwunel:latest
+    image: ghcr.nju.edu.cn/matrix-construct/tuwunel:latest
     container_name: weat_matrix
     restart: unless-stopped
     volumes:
