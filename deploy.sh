@@ -1,9 +1,9 @@
 #!/bin/bash
-# 在服务器上执行：bash deploy.sh <服务器IP或域名>
-# 例如: bash deploy.sh 124.221.2.9
+# 在服务器上执行：bash deploy.sh <域名>
+# 例如: bash deploy.sh oh-my-harness.site
 set -e
 
-SERVER_NAME="${1:?用法: bash deploy.sh <IP或域名>}"
+DOMAIN="${1:?用法: bash deploy.sh <域名>}"
 
 echo "=== 安装 Docker ==="
 if ! command -v docker &> /dev/null; then
@@ -18,6 +18,11 @@ if ! command -v node &> /dev/null; then
     apt-get install -y nodejs
 fi
 
+echo "=== 安装 certbot ==="
+if ! command -v certbot &> /dev/null; then
+    apt-get install -y certbot
+fi
+
 echo "=== 构建前端 ==="
 cd frontend
 npm ci
@@ -25,11 +30,38 @@ npm run build
 cd ..
 
 echo "=== 生成 .env ==="
-echo "SERVER_NAME=${SERVER_NAME}" > .env
+echo "SERVER_NAME=${DOMAIN}" > .env
 
-echo "=== 启动服务 ==="
+echo "=== 第一阶段：HTTP 模式启动 nginx（用于申请证书）==="
+mkdir -p /var/www/certbot
+cp nginx/nginx-init.conf nginx/nginx.conf.bak
+cp nginx/nginx-init.conf /tmp/nginx-init.conf
+
+# 用初始化配置临时启动 nginx
+docker run -d --name weat_nginx_init \
+    -p 80:80 \
+    -v "$(pwd)/frontend/dist:/usr/share/nginx/html:ro" \
+    -v "/var/www/certbot:/var/www/certbot:ro" \
+    -v "/tmp/nginx-init.conf:/etc/nginx/conf.d/default.conf:ro" \
+    nginx:alpine
+
+echo "=== 申请 SSL 证书 ==="
+certbot certonly --webroot \
+    -w /var/www/certbot \
+    -d "${DOMAIN}" \
+    --non-interactive \
+    --agree-tos \
+    --email "admin@${DOMAIN}"
+
+echo "=== 停止临时 nginx ==="
+docker rm -f weat_nginx_init
+
+echo "=== 启动全部服务（HTTPS 模式）==="
 docker compose -f docker-compose.prod.yml up -d --build
+
+echo "=== 配置证书自动续期 ==="
+(crontab -l 2>/dev/null; echo "0 3 * * * certbot renew --quiet && docker exec weat_nginx nginx -s reload") | crontab -
 
 echo ""
 echo "=== 部署完成 ==="
-echo "访问地址: http://${SERVER_NAME}"
+echo "访问地址: https://${DOMAIN}"
