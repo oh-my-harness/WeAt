@@ -180,6 +180,7 @@ async def admin_create_user(req: CreateUserRequest, admin_token: str = Query(...
     await verify_admin(token=admin_token)
     try:
         result = await matrix_api.register_user(req.username, req.password)
+        matrix_api.record_user(req.username)
         return {"user_id": result.get("user_id", req.username)}
     except Exception as e:
         logger.warning("Failed to create user: %s", e)

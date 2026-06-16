@@ -6,6 +6,7 @@ Tuwunel (Matrix) REST API 封装
 """
 
 import asyncio
+import json
 import logging
 import os
 from typing import Any
@@ -149,30 +150,58 @@ async def get_user_info(token: str) -> dict:
 ADMIN_TOKEN = os.environ.get("ADMIN_TOKEN", "")
 MATRIX_ADMIN_TOKEN = os.environ.get("MATRIX_ADMIN_TOKEN", "") or ADMIN_TOKEN
 
+# ── 本地用户记录（Tuwunel 没有 admin API，用本地 JSON 文件维护）────
+
+USERS_FILE = os.environ.get("USERS_FILE", "/app/backend/users.json")
+
+
+def _load_users() -> list[dict]:
+    """从本地 JSON 文件加载用户列表。"""
+    try:
+        with open(USERS_FILE) as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return []
+
+
+def _save_users(users: list[dict]):
+    """写入本地 JSON 文件。"""
+    d = os.path.dirname(USERS_FILE)
+    if d:
+        os.makedirs(d, exist_ok=True)
+    with open(USERS_FILE, "w") as f:
+        json.dump(users, f, indent=2)
+
+
+def record_user(username: str):
+    """记录新注册的用户。"""
+    users = _load_users()
+    existing = {u.get("name", "") for u in users}
+    domain = os.environ.get("MATRIX_DOMAIN") or os.environ.get("SERVER_NAME", "localhost")
+    full_id = f"@{username}:{domain}"
+    if full_id not in existing:
+        users.append({"name": full_id, "deactivated": False})
+        _save_users(users)
+
+
+def remove_user_record(user_id: str):
+    """标记用户为已停用。"""
+    users = _load_users()
+    for u in users:
+        if u.get("name") == user_id:
+            u["deactivated"] = True
+    _save_users(users)
+
 
 async def get_registered_users() -> list[dict]:
-    """获取已注册用户列表。调用 Tuwunel admin API。"""
-    if not MATRIX_ADMIN_TOKEN:
-        raise RuntimeError("未设置 MATRIX_ADMIN_TOKEN 环境变量")
-    data = await _get(
-        "/_synapse/admin/v2/users",
-        token=MATRIX_ADMIN_TOKEN,
-        params={"from": "0", "limit": "200", "guests": "false"},
-    )
-    return data.get("users", [])
+    """获取已注册用户列表（从本地记录读取）。"""
+    return _load_users()
 
 
 async def deactivate_user(user_id: str) -> dict:
-    """停用（注销）用户。使用 Tuwunel admin API。"""
-    if not MATRIX_ADMIN_TOKEN:
-        raise RuntimeError("未设置 MATRIX_ADMIN_TOKEN 环境变量")
-    localpart = user_id.split(":")[0].replace("@", "")
-    domain = os.environ.get("MATRIX_DOMAIN", "localhost")
-    return await _post(
-        f"/_synapse/admin/v1/deactivate/@{localpart}:{domain}",
-        token=MATRIX_ADMIN_TOKEN,
-        json={"erase": True},
-    )
+    """停用（注销）用户。标记本地记录。"""
+    remove_user_record(user_id)
+    return {"ok": True}
 
 
 async def reset_password(username: str, new_password: str) -> dict:
