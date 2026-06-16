@@ -1,4 +1,4 @@
-import type { Tool } from "../agent/types";
+import type { Tool, ToolExecuteContext } from "../agent/types";
 import { searchInVault, hasVault, listVaultTree } from "../vault";
 
 /**
@@ -15,7 +15,15 @@ import { searchInVault, hasVault, listVaultTree } from "../vault";
 // 常见同义词映射，当搜索结果稀疏时自动使用
 const SYNONYM_GROUPS: Record<string, string[]> = {
   "architecture": ["架构", "design", "系统设计", "结构"],
-  "部署": ["deploy", "release", "发布", "上线", "CD"],
+  "部署": ["deploy", "release", "发布", "上线", "CD", "CI/CD"],
+  "前端": ["frontend", "UI", "界面", "React", "Vue", "组件"],
+  "后端": ["backend", "API", "server", "服务端", "接口"],
+  "数据库": ["database", "DB", "SQL", "存储", "数据"],
+  "测试": ["test", "testing", "QA", "单测", "集成测试", "e2e"],
+  "性能": ["performance", "优化", "optimization", "profiling", "速度", "内存"],
+  "安全": ["security", "auth", "认证", "权限", "加密", "漏洞"],
+  "用户": ["user", "client", "customer", "体验", "UX", "客户"],
+  "文档": ["documentation", "docs", "wiki", "手册", "说明", "readme"],
 };
 
 function findSynonyms(keyword: string): string[] {
@@ -44,7 +52,7 @@ export function createSearchVaultTool(): Tool<{ keyword: string; subDir?: string
 
 1. 先用空 keyword 搜索，了解 vault 目录结构
 2. 从用户问题中提取 1-3 个核心概念词搜索
-3. 如果搜索结果为空或稀疏，工具会自动尝试同义词/相关词
+3. 如果搜索结果为空或稀疏，工具会自动尝试同义词/相关词（覆盖领域：架构、部署、前端、后端、数据库、测试、性能、安全、用户、文档）。如果搜索词不在这些领域内，可能需要手动尝试不同关键词
 4. 结果返回含：文件路径、文件名、上下文段落、类型（从 frontmatter 推断）
 5. 如有不同类型的结果（project / person / concept 等），会按类型分组
 
