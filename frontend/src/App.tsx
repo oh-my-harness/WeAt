@@ -3,6 +3,8 @@ import {
   getToken,
   clearSession,
   fetchRooms,
+  createRoom,
+  joinRoom,
   ChatMessage,
   Room,
   useWebSocket,
@@ -128,6 +130,16 @@ export default function App() {
     setPage("rooms");
   }, []);
 
+  const handleCreateRoom = useCallback(async (name: string, pub: boolean) => {
+    await createRoom(name, pub);
+    await loadRooms();
+  }, [loadRooms]);
+
+  const handleJoinRoom = useCallback(async (roomIdOrAlias: string) => {
+    await joinRoom(roomIdOrAlias);
+    await loadRooms();
+  }, [loadRooms]);
+
   if (page === "login") {
     return <LoginPage onLogin={handleLogin} />;
   }
@@ -164,6 +176,8 @@ export default function App() {
           onRefresh={loadRooms}
           onSettings={() => setShowSettings(true)}
           onAdmin={() => setShowAdmin(true)}
+          onCreateRoom={handleCreateRoom}
+          onJoinRoom={handleJoinRoom}
         />
       </aside>
 

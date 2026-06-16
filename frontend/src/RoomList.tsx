@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Room } from "./api";
 
 interface Props {
@@ -8,8 +9,12 @@ interface Props {
   onRefresh: () => void;
   onSettings?: () => void;
   onAdmin?: () => void;
+  onCreateRoom?: (name: string, pub: boolean) => Promise<void>;
+  onJoinRoom?: (roomIdOrAlias: string) => Promise<void>;
   compact?: boolean;
 }
+
+type Dialog = "create" | "join" | null;
 
 export default function RoomList({
   rooms,
@@ -19,10 +24,49 @@ export default function RoomList({
   onRefresh,
   onSettings,
   onAdmin,
+  onCreateRoom,
+  onJoinRoom,
   compact,
 }: Props) {
+  const [dialog, setDialog] = useState<Dialog>(null);
+  const [roomName, setRoomName] = useState("");
+  const [roomPublic, setRoomPublic] = useState(false);
+  const [joinTarget, setJoinTarget] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState("");
+
+  const handleCreate = async () => {
+    if (!roomName.trim()) return;
+    setBusy(true);
+    setMsg("");
+    try {
+      await onCreateRoom?.(roomName.trim(), roomPublic);
+      setDialog(null);
+      setRoomName("");
+      setRoomPublic(false);
+    } catch (err: any) {
+      setMsg(err.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleJoin = async () => {
+    if (!joinTarget.trim()) return;
+    setBusy(true);
+    setMsg("");
+    try {
+      await onJoinRoom?.(joinTarget.trim());
+      setDialog(null);
+      setJoinTarget("");
+    } catch (err: any) {
+      setMsg(err.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
   if (compact) {
-    // 手机底部 Tab 导航：只显示房间名首字母
     return (
       <div className="flex overflow-x-auto px-2 py-1 gap-1">
         {rooms.map((r) => {
@@ -47,12 +91,31 @@ export default function RoomList({
     );
   }
 
-  // 桌面侧栏
   return (
     <>
       <div className="flex items-center justify-between px-4 py-3 border-b">
         <h2 className="font-semibold text-gray-800">房间</h2>
         <div className="flex gap-1">
+          {/* Create room */}
+          <button
+            onClick={() => { setDialog("create"); setMsg(""); }}
+            className="text-gray-400 hover:text-blue-600 p-1 rounded transition-colors"
+            title="创建房间"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+          </button>
+          {/* Join room */}
+          <button
+            onClick={() => { setDialog("join"); setMsg(""); }}
+            className="text-gray-400 hover:text-blue-600 p-1 rounded transition-colors"
+            title="加入房间"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+            </svg>
+          </button>
           <button
             onClick={onAdmin}
             className="text-gray-400 hover:text-green-600 p-1 rounded transition-colors"
@@ -118,6 +181,91 @@ export default function RoomList({
           );
         })}
       </div>
+
+      {/* Dialogs */}
+      {dialog && (
+        <div
+          className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4"
+          onClick={() => setDialog(null)}
+        >
+          <div
+            className="bg-white rounded-xl shadow-xl p-6 w-full max-w-sm"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-base font-semibold mb-4">
+              {dialog === "create" ? "创建房间" : "加入房间"}
+            </h3>
+
+            {msg && (
+              <div className="text-sm bg-red-50 text-red-600 rounded-lg px-3 py-2 mb-3">
+                {msg}
+              </div>
+            )}
+
+            {dialog === "create" ? (
+              <>
+                <input
+                  className="w-full border rounded-lg px-3 py-2 mb-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  placeholder="房间名称"
+                  value={roomName}
+                  onChange={(e) => setRoomName(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleCreate()}
+                  autoFocus
+                />
+                <label className="flex items-center gap-2 text-sm text-gray-600 mb-4 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={roomPublic}
+                    onChange={(e) => setRoomPublic(e.target.checked)}
+                  />
+                  公开房间
+                </label>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setDialog(null)}
+                    className="flex-1 border rounded-lg py-2 text-sm text-gray-600 hover:bg-gray-50"
+                  >
+                    取消
+                  </button>
+                  <button
+                    onClick={handleCreate}
+                    disabled={busy || !roomName.trim()}
+                    className="flex-1 bg-blue-600 text-white rounded-lg py-2 text-sm hover:bg-blue-700 disabled:opacity-50"
+                  >
+                    {busy ? "创建中…" : "创建"}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <input
+                  className="w-full border rounded-lg px-3 py-2 mb-4 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  placeholder="!room_id:server 或 #alias:server"
+                  value={joinTarget}
+                  onChange={(e) => setJoinTarget(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleJoin()}
+                  autoFocus
+                />
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setDialog(null)}
+                    className="flex-1 border rounded-lg py-2 text-sm text-gray-600 hover:bg-gray-50"
+                  >
+                    取消
+                  </button>
+                  <button
+                    onClick={handleJoin}
+                    disabled={busy || !joinTarget.trim()}
+                    className="flex-1 bg-blue-600 text-white rounded-lg py-2 text-sm hover:bg-blue-700 disabled:opacity-50"
+                  >
+                    {busy ? "加入中…" : "加入"}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </>
   );
 }

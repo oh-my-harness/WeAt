@@ -196,10 +196,52 @@ async def admin_reset_password(req: ResetPasswordRequest, admin_token: str = Que
     """重置用户密码。"""
     await verify_admin(token=admin_token)
     try:
-        result = await matrix_api.reset_password(req.username, req.new_password)
+        await matrix_api.reset_password(req.username, req.new_password)
         return {"ok": True}
     except Exception as e:
         logger.warning("Failed to reset password: %s", e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.delete("/api/admin/users/{user_id:path}")
+async def admin_delete_user(user_id: str, admin_token: str = Query(...)):
+    """停用用户。"""
+    await verify_admin(token=admin_token)
+    try:
+        await matrix_api.deactivate_user(user_id)
+        return {"ok": True}
+    except Exception as e:
+        logger.warning("Failed to deactivate user %s: %s", user_id, e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ── Room Management ─────────────────────────────────────────────────────────
+
+
+class CreateRoomRequest(BaseModel):
+    name: str
+    public: bool = False
+
+
+@app.post("/api/rooms")
+async def create_room(req: CreateRoomRequest, token: str = Query(...)):
+    """创建房间。"""
+    try:
+        result = await matrix_api.create_room(token, req.name, req.public)
+        return {"room_id": result.get("room_id", "")}
+    except Exception as e:
+        logger.warning("Failed to create room: %s", e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/rooms/{room_id:path}/join")
+async def join_room(room_id: str, token: str = Query(...)):
+    """加入房间。"""
+    try:
+        result = await matrix_api.join_room(token, room_id)
+        return {"room_id": result.get("room_id", room_id)}
+    except Exception as e:
+        logger.warning("Failed to join room %s: %s", room_id, e)
         raise HTTPException(status_code=500, detail=str(e))
 
 

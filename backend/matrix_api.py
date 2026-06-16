@@ -146,20 +146,58 @@ async def get_user_info(token: str) -> dict:
     return await _get("/_matrix/client/v3/account/whoami", token)
 
 
+MATRIX_ADMIN_TOKEN = os.environ.get("MATRIX_ADMIN_TOKEN", "")
+
+
 async def get_registered_users() -> list[dict]:
     """获取已注册用户列表。调用 Tuwunel admin API。"""
-    try:
-        data = await _get("/_synapse/admin/v2/users")
-        return data.get("users", [])
-    except Exception:
-        # Tuwunel 可能不兼容 Synapse admin API，返回空列表
-        return []
+    if not MATRIX_ADMIN_TOKEN:
+        raise RuntimeError("未设置 MATRIX_ADMIN_TOKEN 环境变量")
+    data = await _get(
+        "/_synapse/admin/v2/users",
+        token=MATRIX_ADMIN_TOKEN,
+        params={"from": "0", "limit": "200", "guests": "false"},
+    )
+    return data.get("users", [])
+
+
+async def deactivate_user(user_id: str) -> dict:
+    """停用（注销）用户。使用 Tuwunel admin API。"""
+    if not MATRIX_ADMIN_TOKEN:
+        raise RuntimeError("未设置 MATRIX_ADMIN_TOKEN 环境变量")
+    localpart = user_id.split(":")[0].replace("@", "")
+    domain = os.environ.get("MATRIX_DOMAIN", "localhost")
+    return await _post(
+        f"/_synapse/admin/v1/deactivate/@{localpart}:{domain}",
+        token=MATRIX_ADMIN_TOKEN,
+        json={"erase": True},
+    )
 
 
 async def reset_password(username: str, new_password: str) -> dict:
     """重置用户密码。使用 Tuwunel admin API。"""
+    if not MATRIX_ADMIN_TOKEN:
+        raise RuntimeError("未设置 MATRIX_ADMIN_TOKEN 环境变量")
     localpart = username.split(":")[0].replace("@", "")
+    domain = os.environ.get("MATRIX_DOMAIN", "localhost")
     return await _put(
-        f"/_synapse/admin/v1/reset_password/@{localpart}",
+        f"/_synapse/admin/v1/reset_password/@{localpart}:{domain}",
+        token=MATRIX_ADMIN_TOKEN,
         json={"new_password": new_password},
     )
+
+
+async def create_room(token: str, name: str, public: bool = False) -> dict:
+    """创建新房间。返回 {room_id}。"""
+    body: dict = {
+        "name": name,
+        "visibility": "public" if public else "private",
+        "preset": "public_chat" if public else "private_chat",
+    }
+    return await _post("/_matrix/client/v3/createRoom", token, json=body)
+
+
+async def join_room(token: str, room_id_or_alias: str) -> dict:
+    """加入房间（通过 room_id 或 room alias）。返回 {room_id}。"""
+    encoded = room_id_or_alias.replace("#", "%23").replace(":", "%3A")
+    return await _post(f"/_matrix/client/v3/join/{encoded}", token)

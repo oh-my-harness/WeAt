@@ -172,6 +172,40 @@ export async function adminCreateUser(adminToken: string, username: string, pass
   return data.user_id;
 }
 
+/** 管理员：列出所有用户 */
+export async function adminListUsers(adminToken: string): Promise<{ name: string; deactivated: boolean }[]> {
+  const data = await apiFetch<{ users: { name: string; deactivated: boolean }[] }>(
+    `/admin/users?admin_token=${encodeURIComponent(adminToken)}`
+  );
+  return data.users;
+}
+
+/** 管理员：停用用户 */
+export async function adminDeleteUser(adminToken: string, userId: string): Promise<void> {
+  await apiFetch<{ ok: boolean }>(
+    `/admin/users/${encodeURIComponent(userId)}?admin_token=${encodeURIComponent(adminToken)}`,
+    { method: "DELETE" }
+  );
+}
+
+// ── Room Management ────────────────────────────────────────────────────────
+
+export async function createRoom(name: string, pub = false): Promise<string> {
+  const data = await apiFetch<{ room_id: string }>("/rooms", {
+    method: "POST",
+    body: JSON.stringify({ name, public: pub }),
+  });
+  return data.room_id;
+}
+
+export async function joinRoom(roomIdOrAlias: string): Promise<string> {
+  const data = await apiFetch<{ room_id: string }>(
+    `/rooms/${encodeURIComponent(roomIdOrAlias)}/join`,
+    { method: "POST" }
+  );
+  return data.room_id;
+}
+
 // ── WebSocket Hook ─────────────────────────────────────────────────────────
 
 const WS_RECONNECT_DELAY = 2000;
