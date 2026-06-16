@@ -143,6 +143,20 @@ async def verify_admin(token: str = Query(...)):
         raise HTTPException(status_code=403, detail="无效的管理员令牌")
 
 
+class AdminLoginRequest(BaseModel):
+    admin_token: str
+
+
+@app.post("/api/admin/login")
+async def admin_login(req: AdminLoginRequest):
+    """管理员登录：验证 ADMIN_TOKEN，返回 session token。"""
+    if not ADMIN_TOKEN:
+        raise HTTPException(status_code=503, detail="管理员模式未启用（未设置 ADMIN_TOKEN）")
+    if req.admin_token != ADMIN_TOKEN:
+        raise HTTPException(status_code=403, detail="无效的管理员令牌")
+    return {"token": ADMIN_TOKEN}
+
+
 @app.get("/api/admin/users")
 async def admin_list_users(admin_token: str = Query(...)):
     """列出所有用户（通过 Tuwunel 注册用户列表）。"""

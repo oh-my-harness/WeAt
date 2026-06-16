@@ -154,6 +154,15 @@ export async function sendMessage(
 
 // ── Admin API ──────────────────────────────────────────────────────────────
 
+/** 管理员登录：验证 ADMIN_TOKEN 并返回 session token */
+export async function adminLogin(adminToken: string): Promise<string> {
+  const data = await apiFetch<{ token: string }>("/admin/login", {
+    method: "POST",
+    body: JSON.stringify({ admin_token: adminToken }),
+  });
+  return data.token;
+}
+
 /** 管理员：创建用户 */
 export async function adminCreateUser(adminToken: string, username: string, password: string): Promise<string> {
   const data = await apiFetch<{ user_id: string }>(`/admin/users?admin_token=${encodeURIComponent(adminToken)}`, {

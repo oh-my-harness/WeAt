@@ -13,11 +13,22 @@ import ChatPage from "./ChatPage";
 import Settings from "./Settings";
 import AdminPanel from "./AdminPanel";
 
-type Page = "login" | "rooms" | "chat";
+const ADMIN_TOKEN_KEY = "weat_admin_token";
+
+function getAdminToken(): string | null {
+  return sessionStorage.getItem(ADMIN_TOKEN_KEY);
+}
+
+function clearAdminToken() {
+  sessionStorage.removeItem(ADMIN_TOKEN_KEY);
+}
+
+type Page = "login" | "rooms" | "chat" | "admin";
 
 export default function App() {
+  const isAdmin = !!getAdminToken();
   const [page, setPage] = useState<Page>(
-    getToken() ? "rooms" : "login"
+    isAdmin ? "admin" : getToken() ? "rooms" : "login"
   );
   const [rooms, setRooms] = useState<Room[]>([]);
   const [activeRoom, setActiveRoom] = useState<Room | null>(null);
@@ -28,8 +39,13 @@ export default function App() {
   messagesRef.current = messages;
 
   const handleLogin = useCallback(() => {
-    setPage("rooms");
-    loadRooms();
+    // Check if this was an admin login
+    if (getAdminToken()) {
+      setPage("admin");
+    } else {
+      setPage("rooms");
+      loadRooms();
+    }
   }, []);
 
   const handleLogout = useCallback(() => {
@@ -38,6 +54,11 @@ export default function App() {
     setRooms([]);
     setActiveRoom(null);
     setMessages([]);
+  }, []);
+
+  const handleAdminLogout = useCallback(() => {
+    clearAdminToken();
+    setPage("login");
   }, []);
 
   const loadRooms = useCallback(async () => {
@@ -69,7 +90,6 @@ export default function App() {
           pending: false,
         };
         setMessages((prev) => {
-          // 二次去重：prev 可能已包含此消息（ChatPage fetch 在 WS 事件入队后已提交）
           if (prev.some((m) => m.id === data.event_id)) return prev;
           return [...prev, msg];
         });
@@ -89,7 +109,6 @@ export default function App() {
 
   const handleAddMessage = useCallback((msg: ChatMessage) => {
     setMessages((prev) => {
-      // When a confirmed message arrives with a _tempId, remove the orphan temp entry first
       const withoutTemp = msg._tempId
         ? prev.filter((m) => m.id !== msg._tempId)
         : prev;
@@ -111,6 +130,26 @@ export default function App() {
 
   if (page === "login") {
     return <LoginPage onLogin={handleLogin} />;
+  }
+
+  // 管理员控制台（独立页面，不走 Matrix 登录）
+  if (page === "admin") {
+    return (
+      <div className="flex flex-col h-full">
+        <header className="flex items-center gap-2 px-4 py-3 border-b bg-white shrink-0">
+          <h1 className="font-semibold flex-1">WeAt 管理员控制台</h1>
+          <button
+            onClick={handleAdminLogout}
+            className="text-sm text-gray-500 hover:text-red-500"
+          >
+            退出
+          </button>
+        </header>
+        <div className="flex-1 overflow-y-auto">
+          <AdminPanel onClose={() => {}} />
+        </div>
+      </div>
+    );
   }
 
   return (
