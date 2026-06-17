@@ -49,3 +49,21 @@ body,
   color: #2563eb;
   text-decoration: underline;
 }
+
+/* 移动端触摸反馈 */
+@media (hover: none) {
+  button:active {
+    transform: scale(0.97);
+    transition: transform 0.1s;
+  }
+}
+
+/* iOS overflow scroll 顺滑 */
+.overflow-y-auto {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* 防止 iOS Safari 双击缩放 */
+button, input, textarea {
+  touch-action: manipulation;
+}
