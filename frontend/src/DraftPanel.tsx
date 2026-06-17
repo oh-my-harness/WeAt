@@ -129,7 +129,7 @@ ${searchVault ? "引用知识库中找到的相关信息（项目背景、历史
           {/* 修改指令 */}
           <div className="flex gap-2">
             <input
-              className="flex-1 border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+              className="flex-1 border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-wechat"
               placeholder="修改指令（如：缩短到一句话）"
               value={instruction}
               onChange={(e) => setInstruction(e.target.value)}
@@ -152,7 +152,7 @@ ${searchVault ? "引用知识库中找到的相关信息（项目背景、历史
               type="checkbox"
               checked={searchVault}
               onChange={(e) => setSearchVault(e.target.checked)}
-              className="w-3.5 h-3.5 rounded border-gray-300 text-blue-600 focus:ring-blue-400"
+              className="w-3.5 h-3.5 rounded border-gray-300 text-wechat focus:ring-wechat"
             />
             搜索知识库
             <span className="text-gray-400">（较慢，消耗更多 token）</span>
@@ -163,14 +163,14 @@ ${searchVault ? "引用知识库中找到的相关信息（项目背景、历史
         <div className="flex-1 overflow-y-auto px-4 py-3 min-h-[120px]">
           {status === "generating" && !draft && (
             <div className="flex items-center justify-center py-8">
-              <div className="animate-spin h-6 w-6 border-2 border-blue-600 border-t-transparent rounded-full" />
+              <div className="animate-spin h-6 w-6 border-2 border-wechat border-t-transparent rounded-full" />
               <span className="ml-2 text-sm text-gray-400">生成中…</span>
             </div>
           )}
 
           {draft && (
             <textarea
-              className="w-full h-40 resize-none border rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+              className="w-full h-40 resize-none border rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-wechat"
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
             />
@@ -195,7 +195,7 @@ ${searchVault ? "引用知识库中找到的相关信息（项目背景、历史
           <button
             onClick={handleSend}
             disabled={!draft.trim()}
-            className="flex-1 bg-blue-600 text-white rounded-xl py-2 text-sm hover:bg-blue-700 disabled:opacity-40 transition-colors"
+            className="flex-1 bg-wechat text-white rounded-xl py-2 text-sm hover:bg-wechat-dark disabled:opacity-40 transition-colors"
           >
             发送
           </button>

@@ -277,7 +277,7 @@ export default function ChatPage({
           <button
             onClick={handleSummarize}
             disabled={summaryState?.busy}
-            className="shrink-0 border border-gray-300 rounded-lg px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50 hover:border-blue-400 disabled:opacity-40 transition-colors"
+            className="shrink-0 border border-gray-300 rounded-lg px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50 hover:border-wechat disabled:opacity-40 transition-colors"
             title="AI 总结最近消息"
           >
             {summaryState?.busy ? "总结中…" : "📋 总结"}
@@ -302,7 +302,7 @@ export default function ChatPage({
         {messages.map((msg) => {
           const isMe = msg.sender === userId;
           const senderName = displayName(msg.sender);
-          const avatarColors = ["bg-red-400","bg-orange-400","bg-amber-400","bg-green-500","bg-teal-500","bg-blue-500","bg-violet-500","bg-pink-500"];
+          const avatarColors = ["bg-red-400","bg-orange-400","bg-amber-400","bg-green-500","bg-teal-500","bg-wechat-light0","bg-violet-500","bg-pink-500"];
           const avatarColor = avatarColors[senderName.charCodeAt(0) % avatarColors.length];
           return (
             <div
@@ -320,7 +320,7 @@ export default function ChatPage({
                 <div
                   className={`rounded-2xl px-3 py-2 ${
                     isMe
-                      ? "bg-blue-600 text-white rounded-br-md"
+                      ? "bg-wechat text-white rounded-br-md"
                       : "bg-white border rounded-bl-md"
                   } ${msg.pending ? "opacity-60" : ""} ${msg.failed ? "border-red-400" : ""}`}
                 >
@@ -334,7 +334,7 @@ export default function ChatPage({
                     <Markdown>{msg.body}</Markdown>
                   </div>
 
-                  <div className={`text-xs mt-1 flex items-center gap-1 ${isMe ? "text-blue-200" : "text-gray-400"}`}>
+                  <div className={`text-xs mt-1 flex items-center gap-1 ${isMe ? "text-wechat-light" : "text-gray-400"}`}>
                     <span>{formatTime(msg.ts)}</span>
                     {msg.pending && <span>发送中…</span>}
                     {msg.failed && <span className="text-red-400">发送失败</span>}
@@ -345,10 +345,10 @@ export default function ChatPage({
                 {!isMe && !msg.pending && (
                   <button
                     onClick={() => handleAIDraft(msg.body)}
-                    className="absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 bg-white border rounded-full p-1 shadow hover:bg-blue-50 transition-opacity"
+                    className="absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 bg-white border rounded-full p-1 shadow hover:bg-wechat-light transition-opacity"
                     title="AI 起草回复"
                   >
-                    <svg className="w-3.5 h-3.5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-3.5 h-3.5 text-wechat" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                     </svg>
                   </button>
@@ -374,12 +374,12 @@ export default function ChatPage({
             onKeyDown={handleKeyDown}
             placeholder="输入消息…"
             rows={1}
-            className="flex-1 border rounded-xl px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-blue-400 text-sm max-h-32"
+            className="flex-1 border rounded-xl px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-wechat text-sm max-h-32"
           />
           <button
             onClick={handleInputSend}
             disabled={!input.trim() || sending}
-            className="bg-blue-600 text-white rounded-xl px-4 py-2 hover:bg-blue-700 disabled:opacity-40 transition-colors shrink-0"
+            className="bg-wechat text-white rounded-xl px-4 py-2 hover:bg-wechat-dark disabled:opacity-40 transition-colors shrink-0"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19V5m0 0l-7 7m7-7l7 7" />

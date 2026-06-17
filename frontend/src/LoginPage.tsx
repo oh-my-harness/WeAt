@@ -52,7 +52,7 @@ export default function LoginPage({ onLogin }: Props) {
   };
 
   return (
-    <div className="flex items-center justify-center min-h-full bg-gradient-to-br from-blue-50 to-indigo-100">
+    <div className="flex items-center justify-center min-h-full bg-gradient-to-br from-wechat-light to-green-100">
       <div className="bg-white rounded-2xl shadow-lg p-8 w-full max-w-sm mx-4">
         <h1 className="text-2xl font-bold text-center mb-1">WeAt</h1>
         <p className="text-gray-500 text-sm text-center mb-6">
@@ -84,14 +84,14 @@ export default function LoginPage({ onLogin }: Props) {
         {mode === "user" ? (
           <form onSubmit={handleUserLogin}>
             <input
-              className="w-full border rounded-lg px-3 py-2 mb-3 focus:outline-none focus:ring-2 focus:ring-blue-400"
+              className="w-full border rounded-lg px-3 py-2 mb-3 focus:outline-none focus:ring-2 focus:ring-wechat"
               placeholder="用户名"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               autoFocus
             />
             <input
-              className="w-full border rounded-lg px-3 py-2 mb-4 focus:outline-none focus:ring-2 focus:ring-blue-400"
+              className="w-full border rounded-lg px-3 py-2 mb-4 focus:outline-none focus:ring-2 focus:ring-wechat"
               type="password"
               placeholder="密码"
               value={password}
@@ -100,7 +100,7 @@ export default function LoginPage({ onLogin }: Props) {
             <button
               type="submit"
               disabled={busy}
-              className="w-full bg-blue-600 text-white rounded-lg py-2.5 font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+              className="w-full bg-wechat text-white rounded-lg py-2.5 font-medium hover:bg-wechat-dark disabled:opacity-50 transition-colors"
             >
               {busy ? "登录中…" : "登录"}
             </button>
@@ -108,7 +108,7 @@ export default function LoginPage({ onLogin }: Props) {
         ) : (
           <form onSubmit={handleAdminLogin}>
             <input
-              className="w-full border rounded-lg px-3 py-2 mb-4 focus:outline-none focus:ring-2 focus:ring-blue-400"
+              className="w-full border rounded-lg px-3 py-2 mb-4 focus:outline-none focus:ring-2 focus:ring-wechat"
               type="password"
               placeholder="管理员令牌"
               value={adminToken}

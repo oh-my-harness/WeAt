@@ -78,7 +78,7 @@ export default function RoomList({
               onClick={() => onSelect(r)}
               className={`shrink-0 w-12 h-12 rounded-full text-sm font-medium flex items-center justify-center ${
                 active
-                  ? "bg-blue-600 text-white"
+                  ? "bg-wechat text-white"
                   : "text-gray-600 hover:bg-gray-100"
               }`}
               title={r.name || r.room_id}
@@ -99,7 +99,7 @@ export default function RoomList({
           {/* Create room */}
           <button
             onClick={() => { setDialog("create"); setMsg(""); }}
-            className="text-gray-400 hover:text-blue-600 p-1 rounded transition-colors"
+            className="text-gray-400 hover:text-wechat p-1 rounded transition-colors"
             title="创建房间"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -109,7 +109,7 @@ export default function RoomList({
           {/* Join room */}
           <button
             onClick={() => { setDialog("join"); setMsg(""); }}
-            className="text-gray-400 hover:text-blue-600 p-1 rounded transition-colors"
+            className="text-gray-400 hover:text-wechat p-1 rounded transition-colors"
             title="加入房间"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -127,7 +127,7 @@ export default function RoomList({
           </button>
           <button
             onClick={onSettings}
-            className="text-gray-400 hover:text-blue-600 p-1 rounded transition-colors"
+            className="text-gray-400 hover:text-wechat p-1 rounded transition-colors"
             title="设置"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -137,7 +137,7 @@ export default function RoomList({
           </button>
           <button
             onClick={onRefresh}
-            className="text-gray-400 hover:text-blue-600 p-1 rounded transition-colors"
+            className="text-gray-400 hover:text-wechat p-1 rounded transition-colors"
             title="刷新"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -165,7 +165,7 @@ export default function RoomList({
         {rooms.map((r) => {
           const label = r.name || r.room_id.slice(0, 12) + "...";
           const active = activeRoom?.room_id === r.room_id;
-          const colors = ["bg-red-400","bg-orange-400","bg-amber-400","bg-green-500","bg-teal-500","bg-blue-500","bg-violet-500","bg-pink-500"];
+          const colors = ["bg-red-400","bg-orange-400","bg-amber-400","bg-green-500","bg-teal-500","bg-wechat-light0","bg-violet-500","bg-pink-500"];
           const avatarColor = colors[label.charCodeAt(0) % colors.length];
           return (
             <button
@@ -213,7 +213,7 @@ export default function RoomList({
             {dialog === "create" ? (
               <>
                 <input
-                  className="w-full border rounded-lg px-3 py-2 mb-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  className="w-full border rounded-lg px-3 py-2 mb-3 text-sm focus:outline-none focus:ring-2 focus:ring-wechat"
                   placeholder="房间名称"
                   value={roomName}
                   onChange={(e) => setRoomName(e.target.value)}
@@ -238,7 +238,7 @@ export default function RoomList({
                   <button
                     onClick={handleCreate}
                     disabled={busy || !roomName.trim()}
-                    className="flex-1 bg-blue-600 text-white rounded-lg py-2 text-sm hover:bg-blue-700 disabled:opacity-50"
+                    className="flex-1 bg-wechat text-white rounded-lg py-2 text-sm hover:bg-wechat-dark disabled:opacity-50"
                   >
                     {busy ? "创建中…" : "创建"}
                   </button>
@@ -247,7 +247,7 @@ export default function RoomList({
             ) : (
               <>
                 <input
-                  className="w-full border rounded-lg px-3 py-2 mb-4 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  className="w-full border rounded-lg px-3 py-2 mb-4 text-sm focus:outline-none focus:ring-2 focus:ring-wechat"
                   placeholder="!room_id:server 或 #alias:server"
                   value={joinTarget}
                   onChange={(e) => setJoinTarget(e.target.value)}
@@ -264,7 +264,7 @@ export default function RoomList({
                   <button
                     onClick={handleJoin}
                     disabled={busy || !joinTarget.trim()}
-                    className="flex-1 bg-blue-600 text-white rounded-lg py-2 text-sm hover:bg-blue-700 disabled:opacity-50"
+                    className="flex-1 bg-wechat text-white rounded-lg py-2 text-sm hover:bg-wechat-dark disabled:opacity-50"
                   >
                     {busy ? "加入中…" : "加入"}
                   </button>

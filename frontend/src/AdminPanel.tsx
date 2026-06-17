@@ -87,7 +87,7 @@ export default function AdminPanel({ onClose }: Props) {
             onClick={() => setTab(t)}
             className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
               tab === t
-                ? "border-blue-600 text-blue-600"
+                ? "border-wechat text-wechat"
                 : "border-transparent text-gray-500 hover:text-gray-700"
             }`}
           >
@@ -107,7 +107,7 @@ export default function AdminPanel({ onClose }: Props) {
             <button
               onClick={loadUsers}
               disabled={loadingUsers}
-              className="text-sm text-blue-600 hover:text-blue-800 disabled:opacity-50"
+              className="text-sm text-wechat hover:text-wechat-dark disabled:opacity-50"
             >
               {loadingUsers ? "加载中…" : "刷新"}
             </button>
@@ -159,7 +159,7 @@ export default function AdminPanel({ onClose }: Props) {
 
           <label className="block text-sm text-gray-600 mb-1">用户名</label>
           <input
-            className="w-full border rounded-lg px-3 py-2 mb-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+            className="w-full border rounded-lg px-3 py-2 mb-3 text-sm focus:outline-none focus:ring-2 focus:ring-wechat"
             placeholder="新用户的用户名"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
@@ -167,7 +167,7 @@ export default function AdminPanel({ onClose }: Props) {
 
           <label className="block text-sm text-gray-600 mb-1">密码</label>
           <input
-            className="w-full border rounded-lg px-3 py-2 mb-4 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+            className="w-full border rounded-lg px-3 py-2 mb-4 text-sm focus:outline-none focus:ring-2 focus:ring-wechat"
             type="password"
             placeholder="新用户的密码"
             value={password}
@@ -177,7 +177,7 @@ export default function AdminPanel({ onClose }: Props) {
           <button
             onClick={handleCreate}
             disabled={busy}
-            className="w-full bg-blue-600 text-white rounded-lg py-2 text-sm hover:bg-blue-700 disabled:opacity-50 transition-colors"
+            className="w-full bg-wechat text-white rounded-lg py-2 text-sm hover:bg-wechat-dark disabled:opacity-50 transition-colors"
           >
             {busy ? "创建中…" : "创建用户"}
           </button>
