@@ -1,5 +1,11 @@
 @import "tailwindcss";
 
+@theme {
+  --color-wechat: #07C160;
+  --color-wechat-dark: #059e4e;
+  --color-wechat-light: #e8f9f0;
+}
+
 /* 让页面占满全屏 */
 html,
 body,
