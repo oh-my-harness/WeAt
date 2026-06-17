@@ -165,18 +165,26 @@ export default function RoomList({
         {rooms.map((r) => {
           const label = r.name || r.room_id.slice(0, 12) + "...";
           const active = activeRoom?.room_id === r.room_id;
+          const colors = ["bg-red-400","bg-orange-400","bg-amber-400","bg-green-500","bg-teal-500","bg-blue-500","bg-violet-500","bg-pink-500"];
+          const avatarColor = colors[label.charCodeAt(0) % colors.length];
           return (
             <button
               key={r.room_id}
               onClick={() => onSelect(r)}
-              className={`w-full text-left px-4 py-3 border-b border-gray-50 hover:bg-gray-50 transition-colors ${
-                active ? "bg-blue-50 border-l-3 border-l-blue-600" : ""
+              className={`w-full flex items-center gap-3 px-4 py-3 border-b border-gray-50 transition-colors active:bg-gray-100 ${
+                active ? "bg-green-50" : "hover:bg-gray-50"
               }`}
             >
-              <div className="font-medium text-sm truncate">{label}</div>
-              <div className="text-xs text-gray-400 truncate mt-0.5">
-                {r.room_id}
+              <div className={`shrink-0 w-12 h-12 rounded-full ${avatarColor} flex items-center justify-center text-white text-lg font-semibold`}>
+                {label.charAt(0).toUpperCase()}
               </div>
+              <div className="flex-1 text-left min-w-0">
+                <div className={`text-[15px] font-semibold leading-tight truncate ${active ? "text-green-700" : "text-gray-800"}`}>{label}</div>
+                <div className="text-xs text-gray-400 truncate mt-0.5">{r.room_id.slice(0, 30)}</div>
+              </div>
+              {active && (
+                <div className="shrink-0 w-2 h-2 rounded-full bg-green-500" />
+              )}
             </button>
           );
         })}
