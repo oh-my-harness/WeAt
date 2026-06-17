@@ -44,6 +44,22 @@ export default function ChatPage({
   messagesRef.current = messages;
   const userId = getUserId();
   const llmConfig = getLLMConfig();
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const onResize = () => {
+      const diff = window.innerHeight - vv.height - vv.offsetTop;
+      setKeyboardHeight(diff > 0 ? diff : 0);
+    };
+    vv.addEventListener("resize", onResize);
+    vv.addEventListener("scroll", onResize);
+    return () => {
+      vv.removeEventListener("resize", onResize);
+      vv.removeEventListener("scroll", onResize);
+    };
+  }, []);
 
   // ── 加载历史消息 ─────────────────────────────────────────────
   useEffect(() => {
@@ -334,7 +350,10 @@ export default function ChatPage({
       </div>
 
       {/* 输入区 */}
-      <div className="px-4 py-3 border-t bg-white shrink-0">
+      <div
+        className="px-4 py-3 border-t bg-white shrink-0"
+        style={{ paddingBottom: `calc(0.75rem + ${keyboardHeight}px)` }}
+      >
         <div className="flex gap-2 items-end">
           <textarea
             value={input}
