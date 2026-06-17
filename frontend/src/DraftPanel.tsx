@@ -30,7 +30,7 @@ export default function DraftPanel({ roomId, llmConfig, targetMessage, onClose, 
     abortRef.current = ac;
 
     const contextHint = targetMessage
-      ? `用户想回复这条消息：「${targetMessage}」\n\n`
+      ? `需要回复的消息：「${targetMessage}」`
       : "";
 
     // 按开关决定是否注入 searchVault
@@ -40,6 +40,10 @@ export default function DraftPanel({ roomId, llmConfig, targetMessage, onClose, 
       tools.push(createSearchVaultTool());
       toolListDesc += "\n- search_vault: 搜索本地知识库中的相关笔记（如果有的话）";
     }
+
+    const replyFocus = targetMessage
+      ? `## 核心任务\n\n**直接回复这条消息**：「${targetMessage}」\n聊天历史仅用于理解背景，不要平等对待所有历史消息。\n`
+      : "";
 
     try {
       const text = await runAgent(
@@ -53,14 +57,14 @@ ${toolListDesc}
 
 ## 工作流程
 
-1. 用 get_room_history 获取当前房间最近聊天记录${searchVault ? `\n2. 搜索知识库中与上下文相关的信息：
+1. 用 get_room_history 获取当前房间最近聊天记录（只用于了解背景）${searchVault ? `\n2. 搜索知识库中与上下文相关的信息：
    - search_vault("") 了解 vault 目录结构
    - 从消息中提取核心概念，逐个搜索
    - 定向搜索 wiki/projects/、wiki/entities/、wiki/concepts/ 等可能相关目录
    - search_vault 工具会自动试同义词
 3. 综合聊天历史和 vault 信息，起草回复` : ""}
 
-## 回复要求
+${replyFocus}## 回复要求
 
 ${searchVault ? "引用知识库中找到的相关信息（项目背景、历史决策、人物信息等），只引用确实相关的。引用格式：📚 [[文件路径]]\n" : ""}
 回复简洁自然，符合对话上下文。
@@ -68,7 +72,9 @@ ${searchVault ? "引用知识库中找到的相关信息（项目背景、历史
           tools,
           maxTurns: searchVault ? 10 : 6,
         },
-        `${contextHint}${userInstruction || "根据聊天历史，帮我起草一条回复"}`,
+        targetMessage
+          ? `${userInstruction || "帮我起草一条回复"}。${contextHint}`
+          : (userInstruction || "根据聊天历史，帮我起草一条回复"),
         (event) => {
           if (event.type === "text_start") {
             streamingRef.current = false;
