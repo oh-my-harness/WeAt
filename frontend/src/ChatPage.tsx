@@ -388,6 +388,19 @@ export default function ChatPage({
         </div>
       </div>
 
+      {/* FAB：AI 起草 */}
+      {llmConfig && draftTarget === null && (
+        <button
+          onClick={() => handleAIDraft("")}
+          className="fixed bottom-20 right-4 md:absolute md:bottom-20 md:right-6 z-20 w-12 h-12 bg-wechat hover:bg-wechat-dark text-white rounded-full shadow-lg flex items-center justify-center transition-colors active:scale-95"
+          title="AI 起草回复"
+        >
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+          </svg>
+        </button>
+      )}
+
       {/* Draft Panel */}
       {draftTarget !== null && llmConfig && (
         <DraftPanel
