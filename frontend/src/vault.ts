@@ -66,8 +66,16 @@ let memoryHandle: FileSystemDirectoryHandle | null = null;
 
 // ── Public API ──────────────────────────────────────────────────────────────
 
-/** 让用户选择一个本地目录作为 vault，返回是否成功 */
+/** 当前浏览器是否支持 File System Access API */
+export function isVaultSupported(): boolean {
+  return typeof (window as any).showDirectoryPicker === "function";
+}
+
+/** 让用户选择一个本地目录作为 vault，返回是否成功。不支持时抛出错误。 */
 export async function pickVault(): Promise<boolean> {
+  if (!isVaultSupported()) {
+    throw new Error("当前浏览器不支持本地目录访问。请使用桌面版 Chrome 或 Edge。");
+  }
   try {
     const handle = await (window as any).showDirectoryPicker({ mode: "readwrite" });
     await storeHandle(handle);
@@ -75,7 +83,7 @@ export async function pickVault(): Promise<boolean> {
   } catch (err: any) {
     if (err.name === "AbortError") return false;
     console.error("pickVault failed:", err);
-    return false;
+    throw err;
   }
 }
 

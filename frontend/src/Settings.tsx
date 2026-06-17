@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from "react";
 import { getLLMConfig, setLLMConfig, clearLLMConfig } from "./api";
-import { pickVault, hasVault, listVaultFiles } from "./vault";
+import { pickVault, hasVault, listVaultFiles, isVaultSupported } from "./vault";
 
 interface Props {
   onClose: () => void;
@@ -13,6 +13,7 @@ export default function Settings({ onClose }: Props) {
   const [apiKey, setApiKey] = useState(existing?.apiKey || "");
   const [vaultReady, setVaultReady] = useState(false);
   const [vaultFiles, setVaultFiles] = useState<string[]>([]);
+  const [vaultError, setVaultError] = useState("");
 
   // 初始化检查 vault 状态
   useEffect(() => {
@@ -23,11 +24,16 @@ export default function Settings({ onClose }: Props) {
   }, []);
 
   const handlePickVault = useCallback(async () => {
-    const ok = await pickVault();
-    setVaultReady(ok);
-    if (ok) {
-      const files = await listVaultFiles();
-      setVaultFiles(files);
+    setVaultError("");
+    try {
+      const ok = await pickVault();
+      setVaultReady(ok);
+      if (ok) {
+        const files = await listVaultFiles();
+        setVaultFiles(files);
+      }
+    } catch (err: any) {
+      setVaultError(err.message || "选择目录失败");
     }
   }, []);
 
@@ -85,15 +91,26 @@ export default function Settings({ onClose }: Props) {
           <p className="text-xs text-gray-400 mb-2">
             选择本地知识库目录（浏览器 File API），AI 可搜索其中的 .md 文件。
           </p>
-          <button
-            onClick={handlePickVault}
-            className="w-full border border-dashed border-gray-300 rounded-lg px-3 py-3 text-sm text-gray-600 hover:bg-gray-50 hover:border-wechat transition-colors"
-          >
-            {vaultReady ? "📁 更换知识库目录" : "📁 选择知识库目录"}
-          </button>
-          {vaultReady && (
-            <p className="text-xs text-green-600 mt-1">
-              已连接 ({vaultFiles.length} 个 .md 文件)
+          {isVaultSupported() ? (
+            <>
+              <button
+                onClick={handlePickVault}
+                className="w-full border border-dashed border-gray-300 rounded-lg px-3 py-3 text-sm text-gray-600 hover:bg-gray-50 hover:border-wechat transition-colors"
+              >
+                {vaultReady ? "📁 更换知识库目录" : "📁 选择知识库目录"}
+              </button>
+              {vaultReady && (
+                <p className="text-xs text-green-600 mt-1">
+                  已连接 ({vaultFiles.length} 个 .md 文件)
+                </p>
+              )}
+              {vaultError && (
+                <p className="text-xs text-red-500 mt-1">{vaultError}</p>
+              )}
+            </>
+          ) : (
+            <p className="text-xs text-amber-600 bg-amber-50 rounded-lg px-3 py-2">
+              知识库功能需要桌面版 Chrome 或 Edge，移动端暂不支持。
             </p>
           )}
         </div>
