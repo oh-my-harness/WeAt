@@ -78,4 +78,5 @@ export type AgentEvent =
   | { type: "tool_start"; toolName: string }
   | { type: "tool_end"; toolName: string; result: string }
   | { type: "error"; message: string }
-  | { type: "thinking"; text: string };
+  | { type: "thinking"; text: string }
+  | { type: "text_start" };

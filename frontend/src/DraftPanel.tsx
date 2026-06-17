@@ -19,6 +19,7 @@ export default function DraftPanel({ roomId, llmConfig, targetMessage, onClose, 
   const [instruction, setInstruction] = useState("");
   const [searchVault, setSearchVault] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
+  const streamingRef = useRef(false);
 
   const generate = useCallback(async (userInstruction: string) => {
     setStatus("generating");
@@ -69,9 +70,14 @@ ${searchVault ? "引用知识库中找到的相关信息（项目背景、历史
         },
         `${contextHint}${userInstruction || "根据聊天历史，帮我起草一条回复"}`,
         (event) => {
-          // 实时显示思考内容
-          if (event.type === "thinking" && event.text) {
-            // 不自动覆盖 draft
+          if (event.type === "text_start") {
+            streamingRef.current = false;
+            setDraft("");
+          } else if (event.type === "thinking" && event.text && event.text !== "思考中…") {
+            if (!streamingRef.current) {
+              streamingRef.current = true;
+            }
+            setDraft((prev) => prev + event.text);
           }
         },
         ac.signal,

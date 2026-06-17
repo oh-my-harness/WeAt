@@ -43,6 +43,7 @@ export async function runAgent(
   for (let turn = 0; turn < maxTurns; turn++) {
     // Step 1: Call LLM
     console.log(`[Agent] turn ${turn + 1}/${maxTurns}`);
+    onEvent({ type: "text_start" });
     onEvent({ type: "thinking", text: "思考中…" });
 
     let response: AssistantMessage;
