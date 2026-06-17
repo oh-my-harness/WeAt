@@ -345,7 +345,7 @@ export default function ChatPage({
                 {!isMe && !msg.pending && (
                   <button
                     onClick={() => handleAIDraft(msg.body)}
-                    className="absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 bg-white border rounded-full p-1 shadow hover:bg-wechat-light transition-opacity"
+                    className="absolute -top-2 -right-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 bg-white border rounded-full p-1 shadow hover:bg-wechat-light transition-opacity"
                     title="AI 起草回复"
                   >
                     <svg className="w-3.5 h-3.5 text-wechat" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -387,19 +387,6 @@ export default function ChatPage({
           </button>
         </div>
       </div>
-
-      {/* FAB：AI 起草 */}
-      {llmConfig && draftTarget === null && (
-        <button
-          onClick={() => handleAIDraft("")}
-          className="fixed bottom-20 right-4 md:absolute md:bottom-20 md:right-6 z-20 w-12 h-12 bg-wechat hover:bg-wechat-dark text-white rounded-full shadow-lg flex items-center justify-center transition-colors active:scale-95"
-          title="AI 起草回复"
-        >
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-          </svg>
-        </button>
-      )}
 
       {/* Draft Panel */}
       {draftTarget !== null && llmConfig && (
