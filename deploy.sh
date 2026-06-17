@@ -44,6 +44,8 @@ cd ..
 echo "=== 生成 .env ==="
 read -sp "设置管理员令牌（留空则跳过）: " ADMIN_TOKEN_VAL
 echo ""
+read -sp "设置邀请码（留空则禁用自助注册）: " INVITE_CODE_VAL
+echo ""
 read -sp "设置 Matrix 管理员用户名（一般为 admin，留空则跳过）: " MATRIX_ADMIN_USER_VAL
 echo ""
 read -sp "设置 Matrix 管理员密码: " MATRIX_ADMIN_PASSWORD_VAL
@@ -52,6 +54,9 @@ echo ""
 echo "SERVER_NAME=${DOMAIN}" > .env
 if [ -n "$ADMIN_TOKEN_VAL" ]; then
   echo "ADMIN_TOKEN=${ADMIN_TOKEN_VAL}" >> .env
+fi
+if [ -n "$INVITE_CODE_VAL" ]; then
+  echo "INVITE_CODE=${INVITE_CODE_VAL}" >> .env
 fi
 if [ -n "$MATRIX_ADMIN_USER_VAL" ]; then
   echo "MATRIX_ADMIN_USER=${MATRIX_ADMIN_USER_VAL}" >> .env
