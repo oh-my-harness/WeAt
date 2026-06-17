@@ -57,7 +57,7 @@ export default function Settings({ onClose }: Props) {
 
         <label className="block text-sm text-gray-600 mb-1">API 地址</label>
         <input
-          className="w-full border rounded-lg px-3 py-2 mb-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+          className="w-full border rounded-lg px-3 py-2 mb-3 text-sm focus:outline-none focus:ring-2 focus:ring-wechat"
           placeholder="https://api.openai.com/v1"
           value={baseUrl}
           onChange={(e) => setBaseUrl(e.target.value)}
@@ -65,7 +65,7 @@ export default function Settings({ onClose }: Props) {
 
         <label className="block text-sm text-gray-600 mb-1">模型</label>
         <input
-          className="w-full border rounded-lg px-3 py-2 mb-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+          className="w-full border rounded-lg px-3 py-2 mb-3 text-sm focus:outline-none focus:ring-2 focus:ring-wechat"
           placeholder="gpt-4o 或 deepseek-chat 等"
           value={model}
           onChange={(e) => setModel(e.target.value)}
@@ -73,7 +73,7 @@ export default function Settings({ onClose }: Props) {
 
         <label className="block text-sm text-gray-600 mb-1">API Key</label>
         <input
-          className="w-full border rounded-lg px-3 py-2 mb-4 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+          className="w-full border rounded-lg px-3 py-2 mb-4 text-sm focus:outline-none focus:ring-2 focus:ring-wechat"
           type="password"
           placeholder="sk-..."
           value={apiKey}
@@ -87,7 +87,7 @@ export default function Settings({ onClose }: Props) {
           </p>
           <button
             onClick={handlePickVault}
-            className="w-full border border-dashed border-gray-300 rounded-lg px-3 py-3 text-sm text-gray-600 hover:bg-gray-50 hover:border-blue-400 transition-colors"
+            className="w-full border border-dashed border-gray-300 rounded-lg px-3 py-3 text-sm text-gray-600 hover:bg-gray-50 hover:border-wechat transition-colors"
           >
             {vaultReady ? "📁 更换知识库目录" : "📁 选择知识库目录"}
           </button>
@@ -108,7 +108,7 @@ export default function Settings({ onClose }: Props) {
           <button
             onClick={handleSave}
             disabled={!baseUrl.trim() || !model.trim() || !apiKey.trim()}
-            className="flex-1 bg-blue-600 text-white rounded-lg py-2 text-sm hover:bg-blue-700 disabled:opacity-40"
+            className="flex-1 bg-wechat text-white rounded-lg py-2 text-sm hover:bg-wechat-dark disabled:opacity-40"
           >
             保存
           </button>

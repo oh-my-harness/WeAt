@@ -48,7 +48,7 @@ export default function SummaryPanel({
         {/* 内容编辑 */}
         <div className="flex-1 overflow-y-auto px-4 py-3 min-h-[120px]">
           <textarea
-            className="w-full h-60 resize-none border rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+            className="w-full h-60 resize-none border rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-wechat"
             value={text}
             onChange={(e) => setText(e.target.value)}
           />
@@ -66,7 +66,7 @@ export default function SummaryPanel({
           <button
             onClick={handleSend}
             disabled={!text.trim()}
-            className="flex-1 bg-blue-600 text-white rounded-xl py-2 text-sm hover:bg-blue-700 disabled:opacity-40 transition-colors"
+            className="flex-1 bg-wechat text-white rounded-xl py-2 text-sm hover:bg-wechat-dark disabled:opacity-40 transition-colors"
           >
             发送到聊天
           </button>
