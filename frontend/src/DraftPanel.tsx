@@ -112,8 +112,8 @@ ${searchVault ? "引用知识库中找到的相关信息（项目背景、历史
   }, [draft, onSend, onClose]);
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col sm:flex-row sm:items-center sm:justify-center sm:bg-black/30">
-      <div className="bg-white flex-1 sm:flex-initial sm:rounded-2xl sm:shadow-xl sm:w-full sm:max-w-lg sm:max-h-[80vh] flex flex-col sm:mx-4">
+    <div className="fixed inset-0 z-50 flex flex-col sm:flex-row sm:justify-end sm:bg-black/20">
+      <div className="bg-white flex-1 sm:flex-initial sm:w-96 sm:h-full sm:shadow-2xl sm:border-l flex flex-col">
         {/* 头部 */}
         <div className="flex items-center justify-between px-4 py-3 border-b">
           <h3 className="font-semibold text-sm">AI 起草</h3>
