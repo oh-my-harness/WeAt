@@ -301,12 +301,22 @@ export default function ChatPage({
 
         {messages.map((msg) => {
           const isMe = msg.sender === userId;
+          const senderName = displayName(msg.sender);
+          const avatarColors = ["bg-red-400","bg-orange-400","bg-amber-400","bg-green-500","bg-teal-500","bg-blue-500","bg-violet-500","bg-pink-500"];
+          const avatarColor = avatarColors[senderName.charCodeAt(0) % avatarColors.length];
           return (
             <div
               key={msg.id}
-              className={`group flex ${isMe ? "justify-end" : "justify-start"}`}
+              className={`group flex items-end gap-2 ${isMe ? "justify-end" : "justify-start"}`}
             >
-              <div className="relative max-w-[80%] sm:max-w-[70%]">
+              {/* 对方头像 */}
+              {!isMe && (
+                <div className={`shrink-0 w-8 h-8 rounded-full ${avatarColor} flex items-center justify-center text-white text-xs font-semibold mb-1`}>
+                  {senderName.charAt(0).toUpperCase()}
+                </div>
+              )}
+
+              <div className="relative max-w-[75%] sm:max-w-[65%]">
                 <div
                   className={`rounded-2xl px-3 py-2 ${
                     isMe
@@ -344,6 +354,9 @@ export default function ChatPage({
                   </button>
                 )}
               </div>
+
+              {/* 自己占位（保持对齐） */}
+              {isMe && <div className="w-8 shrink-0" />}
             </div>
           );
         })}
