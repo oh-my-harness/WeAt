@@ -163,6 +163,7 @@ async def register(req: RegisterRequest):
         raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
     try:
         result = await matrix_api.register_user(req.username, req.password)
+        matrix_api.record_user(req.username)
         return {"user_id": result.get("user_id", "")}
     except Exception as e:
         logger.warning("Registration failed for %s: %s", req.username, e)

@@ -77,6 +77,8 @@ export default function AdminPanel({ onClose }: Props) {
       setCreateMsg(`✅ 用户 ${uid} 创建成功`);
       setUsername("");
       setPassword("");
+      // 自动切换到用户列表并刷新
+      setTab("list");
     } catch (err: any) {
       setCreateMsg(`❌ ${err.message}`);
     } finally {

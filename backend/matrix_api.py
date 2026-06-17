@@ -192,8 +192,66 @@ def remove_user_record(user_id: str):
 
 
 async def get_registered_users() -> list[dict]:
-    """获取已注册用户列表（从本地记录读取）。"""
-    return _load_users()
+    """获取已注册用户列表。本地有缓存时直接返回，否则从 Tuwunel 同步。"""
+    local = _load_users()
+    if local:
+        return local
+    try:
+        return await _fetch_users_from_tuwunel()
+    except Exception as e:
+        logger.warning("Failed to fetch users from Tuwunel: %s", e)
+        return []
+
+
+async def _fetch_users_from_tuwunel() -> list[dict]:
+    """通过管理员房间命令从 Tuwunel 获取用户列表。"""
+    token = await _get_admin_token()
+    server_name = os.environ.get("SERVER_NAME", "localhost")
+    from urllib.parse import quote
+    admin_alias = quote(f"#admins:{server_name}", safe="")
+
+    # 通过别名解析管理员房间 ID
+    try:
+        data = await _get(f"/_matrix/client/v3/directory/room/{admin_alias}", token)
+        room_id = data["room_id"] if isinstance(data, dict) else ""
+    except Exception:
+        # 如果不在该房间，先加入
+        room_data = await join_room(token, f"#admins:{server_name}")
+        room_id = room_data.get("room_id", "")
+
+    if not room_id:
+        raise RuntimeError("Cannot find or join admin room")
+
+    # 发送 list-local-users 命令
+    await send_message(room_id, token, "!admin users list-local-users")
+
+    # 等待并读取结果（命令回复可能出现在最新消息中）
+    await asyncio.sleep(1)  # 给 Tuwunel 一点时间处理
+    messages = await get_messages(room_id, token, limit=20)
+
+    users = []
+    found_list = False
+    for msg in messages:
+        body = msg.get("content", {}).get("body", "")
+        if "local user account(s)" in body:
+            found_list = True
+            lines = body.split("\n")
+            in_block = False
+            for line in lines:
+                line = line.strip()
+                if line.startswith("```"):
+                    in_block = not in_block
+                    continue
+                if in_block and line.startswith("@"):
+                    users.append({"name": line, "deactivated": False})
+            break
+
+    if not found_list:
+        raise RuntimeError("Did not get user list response from admin room")
+
+    # 将结果写入本地文件作为缓存
+    _save_users(users)
+    return users
 
 
 # ── Tuwunel Admin API（基于 room-based admin 机制） ──────────────────
