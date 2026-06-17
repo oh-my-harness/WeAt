@@ -3,9 +3,10 @@ import { login, setUserId, adminLogin } from "./api";
 
 interface Props {
   onLogin: () => void;
+  onRegister?: () => void;
 }
 
-export default function LoginPage({ onLogin }: Props) {
+export default function LoginPage({ onLogin, onRegister }: Props) {
   const [mode, setMode] = useState<"user" | "admin">("user");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -104,6 +105,14 @@ export default function LoginPage({ onLogin }: Props) {
             >
               {busy ? "登录中…" : "登录"}
             </button>
+            {onRegister && (
+              <p className="text-center text-sm text-gray-400 mt-4">
+                没有账号？{" "}
+                <button type="button" onClick={onRegister} className="text-wechat hover:underline">
+                  用邀请码注册
+                </button>
+              </p>
+            )}
           </form>
         ) : (
           <form onSubmit={handleAdminLogin}>

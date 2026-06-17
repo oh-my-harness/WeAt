@@ -14,6 +14,7 @@ import RoomList from "./RoomList";
 import ChatPage from "./ChatPage";
 import Settings from "./Settings";
 import AdminPanel from "./AdminPanel";
+import RegisterPage from "./RegisterPage";
 
 const ADMIN_TOKEN_KEY = "weat_admin_token";
 
@@ -25,7 +26,7 @@ function clearAdminToken() {
   sessionStorage.removeItem(ADMIN_TOKEN_KEY);
 }
 
-type Page = "login" | "rooms" | "chat" | "admin";
+type Page = "login" | "rooms" | "chat" | "admin" | "register";
 
 export default function App() {
   const isAdmin = !!getAdminToken();
@@ -143,7 +144,11 @@ export default function App() {
   }, [loadRooms]);
 
   if (page === "login") {
-    return <LoginPage onLogin={handleLogin} />;
+    return <LoginPage onLogin={handleLogin} onRegister={() => setPage("register")} />;
+  }
+
+  if (page === "register") {
+    return <RegisterPage onSuccess={() => setPage("login")} onBack={() => setPage("login")} />;
   }
 
   // 管理员控制台（独立页面，不走 Matrix 登录）

@@ -121,6 +121,29 @@ export async function login(username: string, password: string) {
   return data;
 }
 
+export async function registerUser(
+  username: string,
+  password: string,
+  inviteCode: string,
+): Promise<{ user_id: string }> {
+  const res = await fetch("/api/register", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username, password, invite_code: inviteCode }),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.detail || `Register failed: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function adminGetInviteCode(adminToken: string): Promise<{ invite_code: string | null; message?: string }> {
+  const res = await fetch(`/api/invite-code?token=${encodeURIComponent(adminToken)}`);
+  if (!res.ok) throw new Error(`Failed: ${res.status}`);
+  return res.json();
+}
+
 export async function fetchRooms(): Promise<Room[]> {
   const data = await apiFetch<{ rooms: Room[] }>("/rooms");
   return data.rooms;

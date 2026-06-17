@@ -1,11 +1,11 @@
 import { useState, useEffect } from "react";
-import { adminCreateUser, adminListUsers, adminDeleteUser } from "./api";
+import { adminCreateUser, adminListUsers, adminDeleteUser, adminGetInviteCode } from "./api";
 
 interface Props {
   onClose: () => void;
 }
 
-type Tab = "list" | "create";
+type Tab = "list" | "create" | "invite";
 
 interface User {
   name: string;
@@ -29,6 +29,10 @@ export default function AdminPanel({ onClose }: Props) {
   const [busy, setBusy] = useState(false);
   const [createMsg, setCreateMsg] = useState("");
 
+  // invite state
+  const [inviteCode, setInviteCode] = useState<string | null>(null);
+  const [inviteMsg, setInviteMsg] = useState("");
+
   const loadUsers = async () => {
     setLoadingUsers(true);
     setListMsg("");
@@ -44,6 +48,11 @@ export default function AdminPanel({ onClose }: Props) {
 
   useEffect(() => {
     if (tab === "list") loadUsers();
+    if (tab === "invite") {
+      adminGetInviteCode(adminToken)
+        .then((r) => { setInviteCode(r.invite_code); setInviteMsg(r.message || ""); })
+        .catch((e) => setInviteMsg(e.message));
+    }
   }, [tab]);
 
   const handleDelete = async (userId: string) => {
@@ -81,7 +90,7 @@ export default function AdminPanel({ onClose }: Props) {
 
       {/* Tabs */}
       <div className="flex border-b mb-4">
-        {(["list", "create"] as Tab[]).map((t) => (
+        {(["list", "create", "invite"] as Tab[]).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -91,7 +100,7 @@ export default function AdminPanel({ onClose }: Props) {
                 : "border-transparent text-gray-500 hover:text-gray-700"
             }`}
           >
-            {t === "list" ? "用户列表" : "创建用户"}
+            {t === "list" ? "用户列表" : t === "create" ? "创建用户" : "邀请码"}
           </button>
         ))}
       </div>
@@ -181,6 +190,29 @@ export default function AdminPanel({ onClose }: Props) {
           >
             {busy ? "创建中…" : "创建用户"}
           </button>
+        </div>
+      )}
+
+      {tab === "invite" && (
+        <div className="p-4">
+          <p className="text-sm text-gray-600 mb-3">当前邀请码（分享给需要注册的用户）：</p>
+          {inviteCode ? (
+            <div className="flex items-center gap-2">
+              <code className="flex-1 bg-gray-100 rounded-lg px-3 py-2 text-sm font-mono select-all">
+                {inviteCode}
+              </code>
+              <button
+                onClick={() => navigator.clipboard.writeText(inviteCode)}
+                className="border rounded-lg px-3 py-2 text-sm hover:bg-gray-50"
+              >
+                复制
+              </button>
+            </div>
+          ) : (
+            <p className="text-sm text-amber-600 bg-amber-50 rounded-lg px-3 py-2">
+              {inviteMsg || "未设置 INVITE_CODE 环境变量，注册功能已禁用"}
+            </p>
+          )}
         </div>
       )}
     </div>
