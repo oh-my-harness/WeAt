@@ -1,0 +1,14 @@
+[
+  {
+    "name": "@charlie:localhost",
+    "deactivated": false
+  },
+  {
+    "name": "@conduit:localhost",
+    "deactivated": false
+  },
+  {
+    "name": "@dave:localhost",
+    "deactivated": false
+  }
+]
