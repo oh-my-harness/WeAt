@@ -47,6 +47,12 @@ class SendMessageRequest(BaseModel):
     body: str
 
 
+class RegisterRequest(BaseModel):
+    username: str
+    password: str
+    invite_code: str
+
+
 # ── App ─────────────────────────────────────────────────────────────────────
 
 
@@ -133,6 +139,7 @@ async def whoami(token: str = Query(...)):
 # ── Admin API ──────────────────────────────────────────────────────────────
 
 ADMIN_TOKEN = os.environ.get("ADMIN_TOKEN", "")
+INVITE_CODE = os.environ.get("INVITE_CODE", "")
 
 
 async def verify_admin(token: str = Query(...)):
@@ -141,6 +148,33 @@ async def verify_admin(token: str = Query(...)):
         raise HTTPException(status_code=503, detail="管理员模式未启用（未设置 ADMIN_TOKEN）")
     if token != ADMIN_TOKEN:
         raise HTTPException(status_code=403, detail="无效的管理员令牌")
+
+
+@app.post("/api/register")
+async def register(req: RegisterRequest):
+    """邀请码注册新用户。需设置 INVITE_CODE 环境变量。"""
+    if not INVITE_CODE:
+        raise HTTPException(status_code=503, detail="Registration is disabled")
+    if req.invite_code != INVITE_CODE:
+        raise HTTPException(status_code=403, detail="Invalid invite code")
+    if len(req.username) < 3 or len(req.username) > 32:
+        raise HTTPException(status_code=400, detail="Username must be 3-32 characters")
+    if len(req.password) < 6:
+        raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
+    try:
+        result = await matrix_api.register_user(req.username, req.password)
+        return {"user_id": result.get("user_id", "")}
+    except Exception as e:
+        logger.warning("Registration failed for %s: %s", req.username, e)
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.get("/api/invite-code")
+async def get_invite_code(_: None = Depends(verify_admin)):
+    """管理员查看当前邀请码。"""
+    if not INVITE_CODE:
+        return {"invite_code": None, "message": "Registration disabled (INVITE_CODE not set)"}
+    return {"invite_code": INVITE_CODE}
 
 
 class AdminLoginRequest(BaseModel):

@@ -269,3 +269,16 @@ async def join_room(token: str, room_id_or_alias: str) -> dict:
     # Matrix room ID/alias 包含 ! # : 等特殊字符，必须 URL 编码
     encoded = quote(fixed, safe="")
     return await _post(f"/_matrix/client/v3/join/{encoded}", token)
+
+
+async def register_user(username: str, password: str) -> dict:
+    """通过 Matrix API 注册新用户（需要 Tuwunel ALLOW_REGISTRATION=true）。"""
+    return await _post(
+        "/_matrix/client/v3/register",
+        json={
+            "kind": "user",
+            "username": username,
+            "password": password,
+            "auth": {"type": "m.login.dummy"},
+        },
+    )
